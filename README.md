@@ -71,6 +71,7 @@ uv run alembic upgrade head
 Pushes to `main` (or a manual run of the **Deploy** workflow) deploy to production
 at https://api.masnetsec.com. Everything is in `.github/workflows/deploy.yml` and `deploy/`.
 
+0. The backend lint and tests must pass first; the deploy job `needs:` them.
 1. GitHub Actions assumes the AWS role in the `AWS_ROLE_ARN` repo variable via OIDC
    (no stored AWS keys; the role only trusts `main`).
 2. The backend is built for `linux/amd64` and pushed to the ECR repo `notes-backend`
@@ -90,9 +91,24 @@ Production runs Postgres (named volume, no published ports), the backend (bound 
 CORS allows only `https://app.masnetsec.com` (`CORS_ORIGINS` in the prod compose file).
 Secrets live only in SSM; nothing sensitive is in the repo or workflow.
 
-To roll back, re-run the workflow from an older commit's SHA (or run `deploy.sh <sha>
-us-east-2` on the instance with the compose file in `/opt/notes-app`). Note that
-migrations are not reverted.
+### Recovery and rollback
+
+The default way to recover from a bad deploy is to **roll forward**: fix the problem
+and merge a new commit, which deploys automatically.
+
+Redeploying an older commit (`deploy.sh <sha> us-east-2` on the instance, with the
+compose file in `/opt/notes-app`) is only safe if **no migrations were added since
+that commit**. Migrations are never reverted, and an older image can't run
+`alembic upgrade head` against a database that is at a newer revision (Alembic fails
+with "Can't locate revision"), so the deploy aborts.
+
+### Rotating the database password
+
+Postgres only reads `POSTGRES_PASSWORD` when it first initializes the data volume.
+Changing `/notes-app/db_password` in SSM afterwards makes the backend fail to
+authenticate. To rotate, also change the password inside Postgres first, e.g.
+`docker compose exec db psql -U notes -c "ALTER USER notes PASSWORD '<new>'"`, then
+update the SSM parameter and redeploy.
 
 ## Configuration
 
