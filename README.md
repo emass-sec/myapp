@@ -86,6 +86,8 @@ at https://api.masnetsec.com. Everything is in `.github/workflows/deploy.yml` an
    to ECR, pulls, runs `alembic upgrade head`, runs `docker compose up -d`, polls
    `http://localhost:8000/health` for about 60s and finally prunes old images.
 
+The push trigger only fires for changes under `backend/`, `deploy/` or `.github/workflows/deploy.yml`; to deploy anything else, run `gh workflow run deploy.yml --ref main`.
+
 Production runs Postgres (named volume, no published ports), the backend (bound to
 `127.0.0.1:8000`) and `cloudflared` (host network, routes the tunnel to the backend).
 CORS allows only `https://app.masnetsec.com` (`CORS_ORIGINS` in the prod compose file).
