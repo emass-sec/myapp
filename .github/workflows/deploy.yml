@@ -3,6 +3,10 @@ name: Deploy
 on:
   push:
     branches: [main]
+    paths:
+      - "backend/**"
+      - "deploy/**"
+      - ".github/workflows/deploy.yml"
   workflow_dispatch:
 
 # Never run two deploys at once; queue instead of cancelling a deploy mid-flight.
