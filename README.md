@@ -66,6 +66,50 @@ uv run alembic revision --autogenerate -m "describe change"
 uv run alembic upgrade head
 ```
 
+## Deployment
+
+Pushes to `main` (or a manual run of the **Deploy** workflow) deploy to production
+at https://api.masnetsec.com. Everything is in `.github/workflows/deploy.yml` and `deploy/`.
+
+0. The backend lint and tests must pass first; the deploy job `needs:` them.
+1. GitHub Actions assumes the AWS role in the `AWS_ROLE_ARN` repo variable via OIDC
+   (no stored AWS keys; the role only trusts `main`).
+2. The backend is built for `linux/amd64` and pushed to the ECR repo `notes-backend`
+   in `us-east-2`, tagged with the commit SHA. Tags are immutable, so there is no
+   `latest`; a re-run of the same commit skips the push.
+3. The workflow uses `aws ssm send-command` on the instance in `EC2_INSTANCE_ID` to
+   download `deploy/deploy.sh` and `deploy/docker-compose.prod.yml` from
+   raw.githubusercontent.com at that exact commit, then runs the script. It waits for
+   the result, prints the output and fails the job if the deploy failed.
+4. `deploy.sh` (as root on the instance) reads `/notes-app/db_password` and
+   `/notes-app/tunnel_token` from SSM into `/opt/notes-app/.env` (mode 600), logs in
+   to ECR, pulls, runs `alembic upgrade head`, runs `docker compose up -d`, polls
+   `http://localhost:8000/health` for about 60s and finally prunes old images.
+
+Production runs Postgres (named volume, no published ports), the backend (bound to
+`127.0.0.1:8000`) and `cloudflared` (host network, routes the tunnel to the backend).
+CORS allows only `https://app.masnetsec.com` (`CORS_ORIGINS` in the prod compose file).
+Secrets live only in SSM; nothing sensitive is in the repo or workflow.
+
+### Recovery and rollback
+
+The default way to recover from a bad deploy is to **roll forward**: fix the problem
+and merge a new commit, which deploys automatically.
+
+Redeploying an older commit (`deploy.sh <sha> us-east-2` on the instance, with the
+compose file in `/opt/notes-app`) is only safe if **no migrations were added since
+that commit**. Migrations are never reverted, and an older image can't run
+`alembic upgrade head` against a database that is at a newer revision (Alembic fails
+with "Can't locate revision"), so the deploy aborts.
+
+### Rotating the database password
+
+Postgres only reads `POSTGRES_PASSWORD` when it first initializes the data volume.
+Changing `/notes-app/db_password` in SSM afterwards makes the backend fail to
+authenticate. To rotate, also change the password inside Postgres first, e.g.
+`docker compose exec db psql -U notes -c "ALTER USER notes PASSWORD '<new>'"`, then
+update the SSM parameter and redeploy.
+
 ## Configuration
 
 See `.env.example`. Never commit a real `.env`.
