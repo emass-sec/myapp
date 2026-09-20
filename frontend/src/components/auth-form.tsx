@@ -15,15 +15,29 @@ export const PASSWORD_MAX = 128
 
 interface Props {
   mode: 'login' | 'signup'
+  /** Signup only: show a required invite code field, pre-filled with `initialInvite`. */
+  showInvite?: boolean
+  initialInvite?: string
+  /** Login only: hide the "create an account" link (signups are closed). */
+  hideSignupLink?: boolean
   theme: Theme
   onToggleTheme: () => void
   onSubmit: (c: Credentials) => Promise<void>
 }
 
-export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
+export function AuthForm({
+  mode,
+  showInvite = false,
+  initialInvite = '',
+  hideSignupLink = false,
+  theme,
+  onToggleTheme,
+  onSubmit,
+}: Props) {
   const isSignup = mode === 'signup'
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [invite, setInvite] = useState(initialInvite)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
@@ -36,7 +50,11 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
     setError(null)
     setSubmitting(true)
     try {
-      await onSubmit({ username, password })
+      await onSubmit({
+        username,
+        password,
+        ...(isSignup && showInvite ? { invite_code: invite.trim() } : {}),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
       setSubmitting(false)
@@ -53,6 +71,8 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
         </Link>
       </>
     )
+  } else if (hideSignupLink) {
+    footer = <>Signups are currently closed.</>
   } else {
     footer = (
       <>
@@ -78,6 +98,26 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
         </CardHeader>
         <CardContent>
           <form onSubmit={(e) => void handleSubmit(e)} className="grid gap-4" noValidate>
+            {isSignup && showInvite && (
+              <div className="grid gap-2">
+                <Label htmlFor="invite">Invite code</Label>
+                <Input
+                  id="invite"
+                  value={invite}
+                  onChange={(e) => setInvite(e.target.value)}
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  required
+                  maxLength={64}
+                  placeholder="XXXX-XXXX"
+                  className="font-mono uppercase"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Signups are invite-only. Ask an admin for a code.
+                </p>
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="username">Username</Label>
               <Input
@@ -87,7 +127,7 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
                 autoComplete="username"
                 required
                 maxLength={50}
-                autoFocus
+                autoFocus={!(isSignup && showInvite)}
               />
             </div>
             <div className="grid gap-2">
@@ -113,7 +153,10 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
                 {error}
               </Callout>
             )}
-            <Button type="submit" disabled={submitting || !username.trim() || !password}>
+            <Button
+              type="submit"
+              disabled={submitting || !username.trim() || !password || (isSignup && showInvite && !invite.trim())}
+            >
               {isSignup ? 'Sign up' : 'Log in'}
             </Button>
           </form>
