@@ -32,6 +32,16 @@ Local stack: `cp .env.example .env`, set a real `POSTGRES_PASSWORD` (keep it in 
 - The frontend reads `VITE_API_BASE_URL`, which Vite bakes in at **build** time (default `http://localhost:8000`). Production builds need `https://api.masnetsec.com`.
 - CI (`ci.yml`, PRs) runs backend ruff + pytest and frontend lint + build. Ruff line length is 100.
 
+## Authentication
+
+- Username + password only (6-128 chars, argon2id via `app/security.py`); no email. Routes are in `app/auth.py`; `CurrentUser` is the dependency that guards routes.
+- Server-side sessions in Postgres. The cookie holds a random token; the `sessions` table stores its SHA-256. Cookie is `HttpOnly; Secure; SameSite=Lax`; `COOKIE_SECURE=false` only for local http (set in `docker-compose.yml`).
+- Every note query must filter by `owner_id`; another user's note is a 404, never a 403. New notes must always set `owner_id` (the column is nullable only until a planned follow-up migration makes it `NOT NULL`).
+- Login/signup rate limits live in the `auth_attempts` table; client IP comes from `CF-Connecting-IP`. Login errors must stay generic ("Invalid account or password").
+- CORS uses `allow_credentials=True`, so `CORS_ORIGINS` must stay an explicit list (never `*`). Mutating requests with a non-allowed `Origin` get 403 (`reject_foreign_origins` in `app/main.py`).
+- Tests: use the `client` fixture (already logged in as `alice`) or `make_client()` for independent cookie jars; the test base URL is https so the Secure cookie round-trips.
+- Frontend uses `react-router` (v8; import from `react-router`, not `react-router-dom`). `api.ts` always sends `credentials: 'include'`; a 401 clears auth state and `ProtectedRoute` redirects to `/login`.
+
 ## Infrastructure & deployment
 
 Every push to `main` triggers `.github/workflows/deploy.yml`, so merging deploys to production. Flow: backend tests, OIDC into AWS, build linux/amd64 image, push to ECR, then `aws ssm send-command` runs `deploy/deploy.sh` on the instance (it fetches the script and `deploy/docker-compose.prod.yml` from raw.githubusercontent.com at that commit SHA).
@@ -45,4 +55,5 @@ Every push to `main` triggers `.github/workflows/deploy.yml`, so merging deploys
 - **GitHub Environments:** don't use them on the deploy job without also updating the role's trust policy.
 - **API:** https://api.masnetsec.com, via a Cloudflare Tunnel (`cloudflared`, host network) to `127.0.0.1:8000` on the instance. Prod CORS is fixed to `https://app.masnetsec.com` in `deploy/docker-compose.prod.yml`.
 - **Frontend:** a Cloudflare Worker with static assets (`frontend/wrangler.jsonc`) at https://app.masnetsec.com. `VITE_API_BASE_URL` is a build-time variable set in Cloudflare.
+- **Migration 0002 wipes existing notes** (they had no owner) as it adds users and `notes.owner_id`. It runs on the first deploy that includes it.
 - **Recovery:** roll forward with a new commit. Redeploying an older SHA is only safe if no Alembic migrations were added since. Postgres reads `POSTGRES_PASSWORD` only on first volume init, so rotating the SSM password needs `ALTER USER` first (see README).
