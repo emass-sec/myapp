@@ -43,6 +43,7 @@ Local stack: `cp .env.example .env`, set a real `POSTGRES_PASSWORD` (keep it in 
 - Username + password only (6-128 chars, argon2id via `app/security.py`); no email. Routes are in `app/auth.py`; `CurrentUser` is the dependency that guards routes.
 - Server-side sessions in Postgres. The cookie holds a random token; the `sessions` table stores its SHA-256. Cookie is `HttpOnly; Secure; SameSite=Lax`; `COOKIE_SECURE=false` only for local http (set in `docker-compose.yml`).
 - Every note query must filter by `owner_id`; another user's note is a 404, never a 403., and `notes.owner_id` is `NOT NULL`: every note must be created with an owner.
+- Sharing: `Note.is_public` (default false). `GET /notes/shared` is the only cross-user read; it excludes the caller's own notes, is ordered newest first, and must expose the author's username only (`SharedNoteRead`). It is declared before `/notes/{note_id}` on purpose. Never loosen `_get_or_404`: viewing/editing/deleting stays owner-only even for public notes.
 - Login/signup rate limits live in the `auth_attempts` table; client IP comes from `CF-Connecting-IP`. Login errors must stay generic ("Invalid account or password").
 - CORS uses `allow_credentials=True`, so `CORS_ORIGINS` must stay an explicit list (never `*`). Mutating requests with a non-allowed `Origin` get 403 (`reject_foreign_origins` in `app/main.py`).
 - Tests: use the `client` fixture (already logged in as `alice`) or `make_client()` for independent cookie jars; the test base URL is https so the Secure cookie round-trips.
