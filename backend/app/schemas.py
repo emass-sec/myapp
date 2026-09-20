@@ -8,6 +8,17 @@ PASSWORD_MIN = 6
 PASSWORD_MAX = 128
 
 
+def validate_password_length(v: str) -> str:
+    """The password rule shared by signup and the set-password CLI."""
+    if not PASSWORD_MIN <= len(v) <= PASSWORD_MAX:
+        raise PydanticCustomError(
+            "password_length",
+            "Password must be between {min} and {max} characters",
+            {"min": PASSWORD_MIN, "max": PASSWORD_MAX},
+        )
+    return v
+
+
 NoteColor = Literal["blue", "red", "amber", "green", "yellow"]
 
 
@@ -81,13 +92,7 @@ class SignupRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def check_password_length(cls, v: str) -> str:
-        if not PASSWORD_MIN <= len(v) <= PASSWORD_MAX:
-            raise PydanticCustomError(
-                "password_length",
-                "Password must be between {min} and {max} characters",
-                {"min": PASSWORD_MIN, "max": PASSWORD_MAX},
-            )
-        return v
+        return validate_password_length(v)
 
 
 class LoginRequest(BaseModel):
