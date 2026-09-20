@@ -89,7 +89,7 @@ password must be 6-128 characters). Passwords are hashed with argon2id.
   the frontend calls the API with `credentials: 'include'` and the backend answers with
   `allow_credentials` and explicit `CORS_ORIGINS` only. Mutating requests from any other
   `Origin` are rejected with 403.
-- Every note has an owner and users only see their own. Another user's note ID returns 404.
+- Every note has an owner and users only see their own notes, plus notes other users have chosen to share publicly (see [Sharing notes](#sharing-notes)). Opening, editing or deleting another user's note by ID always returns 404, even if it is public.
 - Login failures return a generic "Invalid account or password". Logins are limited to
   5 failures per 10 minutes per (IP, username) and signups to 10 per hour per IP (HTTP 429),
   tracked in the `auth_attempts` table.
