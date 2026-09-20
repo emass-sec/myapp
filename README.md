@@ -46,7 +46,33 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 ```
 
 `VITE_API_BASE_URL` sets the API base URL (defaults to `http://localhost:8000`).
-The backend allows the origins in `CORS_ORIGINS` (default `http://localhost:5173`).
+The backend allows the origins in `CORS_ORIGINS` (default `http://localhost:5173`) with credentials.
+For plain-http local runs outside Docker, also set `COOKIE_SECURE=false`.
+
+## Accounts and authentication
+
+Users sign up with just a username and password (no email or personal details; the
+password must be 6-128 characters). Passwords are hashed with argon2id.
+
+- Sessions are stored server-side in Postgres (`sessions` table, keyed by a SHA-256
+  of the token). The browser gets an `HttpOnly; Secure; SameSite=Lax` cookie named
+  `session` that lasts 7 days; logout deletes the row.
+- The frontend (`app.masnetsec.com`) and API (`api.masnetsec.com`) are same-site, so
+  the frontend calls the API with `credentials: 'include'` and the backend answers with
+  `allow_credentials` and explicit `CORS_ORIGINS` only. Mutating requests from any other
+  `Origin` are rejected with 403.
+- Every note has an owner and users only see their own. Another user's note ID returns 404.
+- Login failures return a generic "Invalid account or password". Logins are limited to
+  5 failures per 10 minutes per (IP, username) and signups to 10 per hour per IP (HTTP 429),
+  tracked in the `auth_attempts` table.
+- `COOKIE_SECURE` (default `true`) is set to `false` only in the local `docker-compose.yml`,
+  because local development uses plain http. Behind Cloudflare the client IP is read from
+  `CF-Connecting-IP`.
+- Frontend routes: `/login`, `/signup`, and `/` (notes, redirects to `/login` when signed
+  out and returns to the page you asked for after login).
+
+`notes.owner_id` is currently nullable so the migration could delete the old ownerless test
+notes; the API always sets it. A follow-up will make it `NOT NULL`.
 
 ## Checks
 
