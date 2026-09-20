@@ -7,11 +7,11 @@
     <title>Notes</title>
     <script>
       // Apply the theme before first paint to avoid a flash.
+      var dark = true
       try {
-        var t = localStorage.getItem('theme')
-        var dark = t ? t === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches
-        if (dark) document.documentElement.classList.add('dark')
+        dark = localStorage.getItem('theme') !== 'light'
       } catch (e) {}
+      if (dark) document.documentElement.classList.add('dark')
     </script>
   </head>
   <body>

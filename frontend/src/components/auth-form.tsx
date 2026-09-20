@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import { Link } from 'react-router'
+import { Callout } from '@/components/callout'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -68,9 +69,9 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
       <div className="absolute right-4 top-4">
         <ThemeToggle theme={theme} onToggle={onToggleTheme} />
       </div>
-      <Card className="w-full max-w-sm">
+      <Card className="w-full max-w-sm shadow-lg shadow-black/20">
         <CardHeader>
-          <CardTitle className="text-xl">{isSignup ? 'Create an account' : 'Log in'}</CardTitle>
+          <CardTitle className="text-2xl font-semibold">{isSignup ? 'Create an account' : 'Log in'}</CardTitle>
           <CardDescription>
             {isSignup ? 'Pick a username and password. No email needed.' : 'Welcome back to Notes.'}
           </CardDescription>
@@ -108,9 +109,9 @@ export function AuthForm({ mode, theme, onToggleTheme, onSubmit }: Props) {
               )}
             </div>
             {error && (
-              <p role="alert" className="text-sm text-destructive">
+              <Callout variant="danger" title="Error">
                 {error}
-              </p>
+              </Callout>
             )}
             <Button type="submit" disabled={submitting || !username.trim() || !password}>
               {isSignup ? 'Sign up' : 'Log in'}

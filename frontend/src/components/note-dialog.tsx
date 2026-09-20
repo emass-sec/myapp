@@ -12,7 +12,8 @@ import {
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import type { Note, NoteInput } from '@/api'
+import { ColorPicker } from '@/components/color-picker'
+import type { Note, NoteColor, NoteInput } from '@/api'
 
 interface Props {
   open: boolean
@@ -44,13 +45,14 @@ function NoteForm({
 }) {
   const [title, setTitle] = useState(note?.title ?? '')
   const [content, setContent] = useState(note?.content ?? '')
+  const [color, setColor] = useState<NoteColor | null>(note?.color ?? null)
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await onSubmit({ title, content })
+      await onSubmit({ title, content, color })
     } finally {
       setSaving(false)
     }
@@ -84,6 +86,10 @@ function NoteForm({
           rows={6}
           placeholder="Write something…"
         />
+      </div>
+      <div className="grid gap-2">
+        <Label>Color label</Label>
+        <ColorPicker value={color} onChange={setColor} />
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
