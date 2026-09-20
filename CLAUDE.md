@@ -7,7 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `backend/` — FastAPI + SQLAlchemy + Alembic + Postgres, managed with uv (Python 3.12)
 - `frontend/` — React + Vite + TypeScript (npm, lint with oxlint); `wrangler.jsonc` deploys `dist/` as a Cloudflare Worker with static assets (SPA fallback, no Worker script)
 - `docker-compose.yml` — local dev stack; `deploy/` — production stack and deploy script
-- When you add or remove a major dependency (framework, ORM, UI library, hosting/infra component), update the README's "Tech stack" section in the same change.
+- `docs/` — `architecture.md` (tech stack, request flow, auth, sharing, invites), `deployment.md`, `theming.md`, `development.md`; the README is only an intro, quick start and links
+- When you add or remove a major dependency (framework, ORM, UI library, hosting/infra component), update the "Tech stack" section of `docs/architecture.md` in the same change (the README only has a one-line summary; touch it only if the overall stack changes).
 
 ## Commands
 
@@ -43,11 +44,11 @@ Local stack: `cp .env.example .env`, set a real `POSTGRES_PASSWORD` (keep it in 
 
 - Username + password only (6-128 chars, argon2id via `app/security.py`); no email. Routes are in `app/auth.py`; `CurrentUser` is the dependency that guards routes.
 - Server-side sessions in Postgres. The cookie holds a random token; the `sessions` table stores its SHA-256. Cookie is `HttpOnly; Secure; SameSite=Lax`; `COOKIE_SECURE=false` only for local http (set in `docker-compose.yml`).
-- Every note query must filter by `owner_id`; another user's note is a 404, never a 403., and `notes.owner_id` is `NOT NULL`: every note must be created with an owner.
+- Every note query must filter by `owner_id`; another user's note is a 404, never a 403, and `notes.owner_id` is `NOT NULL`: every note must be created with an owner.
 - Sharing: `Note.is_public` (default false). `GET /notes/shared` is the only cross-user read; it excludes the caller's own notes, is ordered newest first, and must expose the note's fields (including `color`) plus the author's username only (`SharedNoteRead`); no owner id or other user data. It is declared before `/notes/{note_id}` on purpose. Never loosen `_get_or_404`: viewing/editing/deleting stays owner-only even for public notes.
 - Signup modes (`SIGNUP_MODE`: `open`/`invite`/`closed`; code default `invite`, prod = `invite`, local/.env.example = `open`). In `invite` mode `signup` consumes a code via `consume_invite` (`app/invites.py`): one atomic `UPDATE ... WHERE use_count < max_uses AND NOT revoked AND expires_at > now RETURNING`. It runs *before* the user insert and in the same transaction, so a username conflict rolls the use back and username probing needs a valid code. Every invalid-code reason returns the same 403 `Invalid invite code`; never differentiate them.
 - Invite codes: only `sha256(normalized code)` is stored; the plaintext exists only in the create response (never log or list it). Format `XXXX-XXXX` from `secrets.choice` over an alphabet without `0/O/1/I/L`.
-- Admin: `users.is_admin` is granted only by `python -m app.cli make-admin USERNAME` (in prod via SSM, see README); never add an API/UI for it. Every route under `/admin` must stay on the router guarded by `require_admin` (403 for non-admins; the flag is read from the DB per request). The frontend `AdminRoute`/hidden link are UX only.
+- Admin: `users.is_admin` is granted only by `python -m app.cli make-admin USERNAME` (in prod via SSM, see `docs/deployment.md`); never add an API/UI for it. Every route under `/admin` must stay on the router guarded by `require_admin` (403 for non-admins; the flag is read from the DB per request). The frontend `AdminRoute`/hidden link are UX only.
 - Tests run with `signup_mode="open"` (autouse fixture in `conftest.py`); use the `admin` fixture / `grant_admin` for admin tests and `monkeypatch.setattr(settings, "signup_mode", ...)` for other modes (request `admin` *before* switching modes). `test_invite_concurrency.py` also runs against Postgres when `TEST_DATABASE_URL` is set.
 - Login/signup rate limits live in the `auth_attempts` table; client IP comes from `CF-Connecting-IP`. Login errors must stay generic ("Invalid account or password").
 - CORS uses `allow_credentials=True`, so `CORS_ORIGINS` must stay an explicit list (never `*`). Mutating requests with a non-allowed `Origin` get 403 (`reject_foreign_origins` in `app/main.py`).
@@ -68,4 +69,4 @@ Every push to `main` triggers `.github/workflows/deploy.yml`, so merging deploys
 - **API:** https://api.masnetsec.com, via a Cloudflare Tunnel (`cloudflared`, host network) to `127.0.0.1:8000` on the instance. Prod CORS is fixed to `https://app.masnetsec.com` in `deploy/docker-compose.prod.yml`.
 - **Frontend:** a Cloudflare Worker with static assets (`frontend/wrangler.jsonc`) at https://app.masnetsec.com. `VITE_API_BASE_URL` is a build-time variable set in Cloudflare.
 - **Migration 0002 wipes existing notes** (they had no owner) as it adds users and `notes.owner_id`. It runs on the first deploy that includes it.
-- **Recovery:** roll forward with a new commit. Redeploying an older SHA is only safe if no Alembic migrations were added since. Postgres reads `POSTGRES_PASSWORD` only on first volume init, so rotating the SSM password needs `ALTER USER` first (see README).
+- **Recovery:** roll forward with a new commit. Redeploying an older SHA is only safe if no Alembic migrations were added since. Postgres reads `POSTGRES_PASSWORD` only on first volume init, so rotating the SSM password needs `ALTER USER` first (see `docs/deployment.md`).
