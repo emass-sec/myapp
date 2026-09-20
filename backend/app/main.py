@@ -1,10 +1,10 @@
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
 from app.auth import CurrentUser
@@ -12,7 +12,7 @@ from app.auth import router as auth_router
 from app.config import settings
 from app.database import get_db
 from app.models import Note, User
-from app.schemas import NoteCreate, NoteRead, NoteUpdate
+from app.schemas import NoteCreate, NoteRead, NoteUpdate, SharedNotePage, SharedNoteRead
 
 DbSession = Annotated[Session, Depends(get_db)]
 
@@ -81,6 +81,39 @@ def list_notes(db: DbSession, user: CurrentUser) -> list[Note]:
     )
 
 
+# Declared before /notes/{note_id} so "shared" isn't parsed as a note id.
+@app.get("/notes/shared", response_model=SharedNotePage)
+def list_shared_notes(
+    db: DbSession,
+    user: CurrentUser,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+    offset: Annotated[int, Query(ge=0)] = 0,
+) -> SharedNotePage:
+    """Other users' public notes, newest first. Author username only; read-only by design."""
+    visible = (Note.is_public.is_(True), Note.owner_id != user.id)
+    total = db.scalar(select(func.count()).select_from(Note).where(*visible)) or 0
+    rows = db.execute(
+        select(Note, User.username)
+        .join(User, User.id == Note.owner_id)
+        .where(*visible)
+        .order_by(Note.created_at.desc(), Note.id.desc())
+        .limit(limit)
+        .offset(offset)
+    ).all()
+    items = [
+        SharedNoteRead(
+            id=n.id,
+            title=n.title,
+            content=n.content,
+            author=username,
+            created_at=n.created_at,
+            updated_at=n.updated_at,
+        )
+        for n, username in rows
+    ]
+    return SharedNotePage(items=items, total=total, limit=limit, offset=offset)
+
+
 @app.post("/notes", response_model=NoteRead, status_code=status.HTTP_201_CREATED)
 def create_note(payload: NoteCreate, db: DbSession, user: CurrentUser) -> Note:
     note = Note(**payload.model_dump(), owner_id=user.id)
@@ -98,7 +131,7 @@ def get_note(note_id: int, db: DbSession, user: CurrentUser) -> Note:
 def update_note(note_id: int, payload: NoteUpdate, db: DbSession, user: CurrentUser) -> Note:
     note = _get_or_404(db, note_id, user)
     for field, value in payload.model_dump(exclude_unset=True).items():
-        # title/content ignore null (unchanged); color accepts null to clear the label.
+        # title/content/is_public ignore null (unchanged); color accepts null to clear the label.
         if value is not None or field == "color":
             setattr(note, field, value)
     db.commit()
