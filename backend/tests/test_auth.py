@@ -55,6 +55,7 @@ def test_password_five_chars_rejected(make_client):
     assert resp.status_code == 422
     assert "at least" not in resp.text  # custom message, not pydantic's default
     assert "between 6 and 128" in resp.json()["detail"][0]["msg"]
+    assert "12345" not in resp.text  # the submitted password is never echoed back
 
 
 def test_password_six_chars_accepted(make_client):

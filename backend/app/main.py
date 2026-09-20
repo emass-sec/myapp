@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import select, text
@@ -18,6 +19,16 @@ DbSession = Annotated[Session, Depends(get_db)]
 app = FastAPI(title="Notes API")
 
 app.include_router(auth_router)
+
+
+@app.exception_handler(RequestValidationError)
+async def validation_error(_: Request, exc: RequestValidationError) -> JSONResponse:
+    # Drop the echoed `input` so submitted passwords never appear in error responses.
+    errors = [
+        {k: v for k, v in e.items() if k not in ("input", "ctx", "url")} for e in exc.errors()
+    ]
+    return JSONResponse({"detail": errors}, status_code=status.HTTP_422_UNPROCESSABLE_CONTENT)
+
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
