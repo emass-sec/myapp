@@ -19,17 +19,20 @@ interface Props {
 export function DeleteDialog({ note, onCancel, onConfirm }: Props) {
   return (
     <AlertDialog open={note !== null} onOpenChange={(open) => !open && onCancel()}>
-      <AlertDialogContent>
+      <AlertDialogContent className="border-danger bg-danger-tint">
         <AlertDialogHeader>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-danger-fg">
+            Danger
+          </p>
           <AlertDialogTitle>Delete this note?</AlertDialogTitle>
-          <AlertDialogDescription>
+          <AlertDialogDescription className="text-foreground/80">
             “{note?.title}” will be permanently deleted. This can’t be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
-            className="bg-destructive text-white hover:bg-destructive/90"
+            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 focus-visible:ring-destructive/30"
             onClick={() => note && onConfirm(note)}
           >
             Delete

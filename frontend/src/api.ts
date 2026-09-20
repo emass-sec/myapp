@@ -1,7 +1,10 @@
+export type NoteColor = 'blue' | 'red' | 'amber' | 'green' | 'yellow'
+
 export interface Note {
   id: number
   title: string
   content: string
+  color: NoteColor | null
   created_at: string
   updated_at: string
 }
@@ -9,6 +12,8 @@ export interface Note {
 export interface NoteInput {
   title: string
   content: string
+  /** null clears the label on update. */
+  color: NoteColor | null
 }
 
 export interface User {

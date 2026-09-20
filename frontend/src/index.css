@@ -1,54 +1,99 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
 @import '@fontsource-variable/inter';
+@import '@fontsource-variable/jetbrains-mono';
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * Light theme: same accent hues as dark, darkened so text and filled buttons keep
+ * WCAG AA contrast. Each accent has: the accent (borders, fills), a tint (callout
+ * background) and an -fg (text-safe on card, background and tint).
+ */
 :root {
   --radius: 0.75rem;
-  --background: oklch(0.985 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.45 0 0);
-  --accent: oklch(0.96 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --background: #f5f7fb;
+  --foreground: #131a2b;
+  --card: #ffffff;
+  --card-foreground: #131a2b;
+  --popover: #ffffff;
+  --popover-foreground: #131a2b;
+  --raised: #eef1f7;
+  --border: #d5dbe8;
+  --input: #7d88a3; /* form-field borders need 3:1 (WCAG 1.4.11) */
+  --ring: #1d5fd8;
+  --muted: #eef1f7;
+  --muted-foreground: #566079;
+  --secondary: #eef1f7;
+  --secondary-foreground: #131a2b;
+  --accent: #e4e9f4;
+  --accent-foreground: #131a2b;
+
+  --info: #1d5fd8;
+  --info-tint: #e8f0ff;
+  --info-fg: #1d5fd8;
+  --danger: #c62f34;
+  --danger-tint: #fdeced;
+  --danger-fg: #c62f34;
+  --warning: #8f5200;
+  --warning-tint: #fff1dc;
+  --warning-fg: #8f5200;
+  --success: #17753a;
+  --success-tint: #e5f6ea;
+  --success-fg: #17753a;
+  --highlight: #7a5c00;
+  --highlight-tint: #fff6cf;
+  --highlight-fg: #7a5c00;
+
+  --primary: var(--info);
+  --primary-foreground: #ffffff;
+  --destructive: var(--danger);
+  --destructive-foreground: #ffffff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
+  --background: #0f1420;
+  --foreground: #e6e9f0;
+  --card: #161c2b;
+  --card-foreground: #e6e9f0;
+  --popover: #161c2b;
+  --popover-foreground: #e6e9f0;
+  --raised: #1c2334;
+  --border: #2a3348;
+  --input: #5b6a8c;
+  --ring: #4c8dff;
+  --muted: #1c2334;
+  --muted-foreground: #8b94a8;
+  --secondary: #1c2334;
+  --secondary-foreground: #e6e9f0;
+  --accent: #1c2334;
+  --accent-foreground: #e6e9f0;
+
+  --info: #4c8dff;
+  --info-tint: #12203a;
+  --info-fg: #4c8dff;
+  --danger: #e5484d;
+  --danger-tint: #2a1519;
+  --danger-fg: #f0686c; /* #e5484d is 4.3:1 on cards, below AA for text */
+  --warning: #f0a040;
+  --warning-tint: #2a1f12;
+  --warning-fg: #f0a040;
+  --success: #46c46e;
+  --success-tint: #13251a;
+  --success-fg: #46c46e;
+  --highlight: #f5c542;
+  --highlight-tint: #2a2512;
+  --highlight-fg: #f5c542;
+
+  --primary: var(--info);
+  --primary-foreground: #0b1020; /* white on #4c8dff is only 3.2:1 */
+  --destructive: var(--danger);
+  --destructive-foreground: #0b1020;
 }
 
 @theme inline {
   --font-sans: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono Variable', ui-monospace, SFMono-Regular, monospace;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -59,6 +104,7 @@
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
+  --color-raised: var(--raised);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
   --color-secondary: var(--secondary);
@@ -68,9 +114,25 @@
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
+  --color-info: var(--info);
+  --color-info-tint: var(--info-tint);
+  --color-info-fg: var(--info-fg);
+  --color-danger: var(--danger);
+  --color-danger-tint: var(--danger-tint);
+  --color-danger-fg: var(--danger-fg);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --color-warning-fg: var(--warning-fg);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-success-fg: var(--success-fg);
+  --color-highlight: var(--highlight);
+  --color-highlight-tint: var(--highlight-tint);
+  --color-highlight-fg: var(--highlight-fg);
 }
 
 @layer base {
@@ -85,5 +147,46 @@
   }
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    background-image: radial-gradient(
+      60rem 28rem at 50% -12rem,
+      color-mix(in oklab, var(--info) 12%, transparent),
+      transparent
+    );
+    background-repeat: no-repeat;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  /* A note card: colored left border and a glow in the same color on hover. */
+  .note-card {
+    --note-accent: var(--border);
+    border-left: 3px solid var(--note-accent);
+    transition:
+      transform 200ms ease,
+      box-shadow 200ms ease,
+      border-color 200ms ease;
+  }
+  .note-card:hover {
+    box-shadow: 0 0 0 1px color-mix(in oklab, var(--note-accent) 45%, transparent),
+      0 8px 28px -10px color-mix(in oklab, var(--note-accent) 55%, transparent);
+    transform: translateY(-2px);
+  }
+  .note-card[data-color='blue'] { --note-accent: var(--info); }
+  .note-card[data-color='red'] { --note-accent: var(--danger); }
+  .note-card[data-color='amber'] { --note-accent: var(--warning); }
+  .note-card[data-color='green'] { --note-accent: var(--success); }
+  .note-card[data-color='yellow'] { --note-accent: var(--highlight); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-card,
+  .note-card:hover {
+    transition: none;
+    transform: none;
   }
 }

@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from pydantic_core import PydanticCustomError
@@ -7,14 +8,20 @@ PASSWORD_MIN = 6
 PASSWORD_MAX = 128
 
 
+NoteColor = Literal["blue", "red", "amber", "green", "yellow"]
+
+
 class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = ""
+    color: NoteColor | None = None
 
 
 class NoteUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     content: str | None = None
+    # Explicit null clears the label; omitting the field leaves it unchanged.
+    color: NoteColor | None = None
 
 
 class NoteRead(BaseModel):
@@ -23,6 +30,7 @@ class NoteRead(BaseModel):
     id: int
     title: str
     content: str
+    color: NoteColor | None
     created_at: datetime
     updated_at: datetime
 

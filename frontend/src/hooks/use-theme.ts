@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react'
 export type Theme = 'light' | 'dark'
 
 const STORAGE_KEY = 'theme'
-const query = () => window.matchMedia('(prefers-color-scheme: dark)')
 
 function readStored(): Theme | null {
   try {
@@ -14,19 +13,10 @@ function readStored(): Theme | null {
   }
 }
 
-/** Follows the system theme until the user picks one explicitly with `toggle`. */
+/** Dark by default; the user's explicit choice (via `toggle`) is remembered. */
 export function useTheme() {
   const [stored, setStored] = useState<Theme | null>(readStored)
-  const [systemDark, setSystemDark] = useState(() => query().matches)
-
-  useEffect(() => {
-    const mq = query()
-    const onChange = (e: MediaQueryListEvent) => setSystemDark(e.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-
-  const theme: Theme = stored ?? (systemDark ? 'dark' : 'light')
+  const theme: Theme = stored ?? 'dark'
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark')
