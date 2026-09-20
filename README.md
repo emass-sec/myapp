@@ -49,6 +49,19 @@ VITE_API_BASE_URL=http://localhost:8000 npm run dev
 The backend allows the origins in `CORS_ORIGINS` (default `http://localhost:5173`) with credentials.
 For plain-http local runs outside Docker, also set `COOKIE_SECURE=false`.
 
+## Theme and color labels
+
+The UI is dark by default (the light/dark toggle remembers your choice in `localStorage`).
+Colors are CSS variables in `frontend/src/index.css`: shadcn tokens plus five accents
+(`info` blue, `danger` red, `warning` amber, `success` green, `highlight` yellow), each with a
+`-tint` (callout background) and `-fg` (text-safe) variant, defined for both themes.
+Contrast was checked against WCAG AA; that is why some `-fg` values and the primary/destructive
+button text differ from the raw accent hue.
+
+Each note can have an optional color label (`blue`, `red`, `amber`, `green`, `yellow`), stored in
+the nullable `notes.color` column (migration `0004`, backward compatible). `PATCH` with
+`"color": null` clears it. The notes page can filter by label.
+
 ## Accounts and authentication
 
 Users sign up with just a username and password (no email or personal details; the

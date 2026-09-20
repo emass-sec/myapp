@@ -32,6 +32,12 @@ Local stack: `cp .env.example .env`, set a real `POSTGRES_PASSWORD` (keep it in 
 - The frontend reads `VITE_API_BASE_URL`, which Vite bakes in at **build** time (default `http://localhost:8000`). Production builds need `https://api.masnetsec.com`.
 - CI (`ci.yml`, PRs) runs backend ruff + pytest and frontend lint + build. Ruff line length is 100.
 
+## Theme
+
+- Dark by default with a light mode; palette and accent tokens live in `frontend/src/index.css` (`info`/`danger`/`warning`/`success`/`highlight`, each with `-tint` and `-fg`). Use those tokens and the `Callout`, `ColorBadge` and `Chip` components instead of ad-hoc colors.
+- Keep text on WCAG AA: use the `-fg` variants for accent-colored text (raw dark-theme red `#e5484d` is only 4.3:1), and dark ink (not white) on filled dark-theme accents.
+- Notes have an optional `color` label (`NoteColor` in `schemas.py` / `api.ts`); `PATCH` with `color: null` clears it while other omitted fields stay unchanged.
+
 ## Authentication
 
 - Username + password only (6-128 chars, argon2id via `app/security.py`); no email. Routes are in `app/auth.py`; `CurrentUser` is the dependency that guards routes.
