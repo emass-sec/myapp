@@ -1,3 +1,5 @@
+from typing import Literal
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -9,6 +11,9 @@ class Settings(BaseSettings):
     # Cookie is always HttpOnly + SameSite=Lax; disable Secure only for plain-http local dev.
     cookie_secure: bool = True
     session_days: int = 7
+    # open: anyone can sign up; invite: a valid invite code is required; closed: no signups.
+    # Defaults to the safe choice; local dev sets SIGNUP_MODE=open.
+    signup_mode: Literal["open", "invite", "closed"] = "invite"
     login_max_failures: int = 5
     login_window_minutes: int = 10
     signup_max_per_hour: int = 10

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { LogOut, NotebookPen, Pencil, Plus, Trash2 } from 'lucide-react'
+import { LogOut, NotebookPen, Pencil, Plus, ShieldCheck, Trash2 } from 'lucide-react'
+import { Link } from 'react-router'
 import { toast } from 'sonner'
 import { ApiError, createNote, deleteNote, listNotes, updateNote } from '@/api'
 import type { Note, NoteColor, NoteInput } from '@/api'
@@ -134,6 +135,13 @@ export default function NotesPage({ theme, onToggleTheme }: Props) {
             <Button onClick={openCreate}>
               <Plus /> New note
             </Button>
+            {user?.is_admin && (
+              <Button asChild variant="ghost" size="sm">
+                <Link to="/admin" aria-label="Admin">
+                  <ShieldCheck /> <span className="hidden sm:inline">Admin</span>
+                </Link>
+              </Button>
+            )}
             <ThemeToggle theme={theme} onToggle={onToggleTheme} />
             <Button
               variant="ghost"

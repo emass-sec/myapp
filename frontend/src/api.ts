@@ -39,7 +39,11 @@ export interface SharedNotePage {
 export interface User {
   id: number
   username: string
+  /** UI hint only; the API enforces admin access itself. */
+  is_admin: boolean
 }
+
+export type SignupMode = 'open' | 'invite' | 'closed'
 
 export class ApiError extends Error {
   status: number
@@ -79,6 +83,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 export interface Credentials {
   username: string
   password: string
+  /** Only sent on signup, and only meaningful when signups are invite-only. */
+  invite_code?: string
 }
 
 export const signup = (c: Credentials) =>
@@ -90,6 +96,43 @@ export const login = (c: Credentials) =>
 export const logout = () => request<void>('/auth/logout', { method: 'POST' })
 
 export const getMe = () => request<User>('/auth/me')
+
+export const getAuthConfig = () => request<{ signup_mode: SignupMode }>('/auth/config')
+
+export type InviteStatus = 'active' | 'used_up' | 'expired' | 'revoked'
+
+export interface Invite {
+  id: number
+  created_by: string | null
+  created_at: string
+  expires_at: string
+  max_uses: number
+  use_count: number
+  revoked: boolean
+  status: InviteStatus
+}
+
+/** The plaintext code is only present in the response to creating the invite. */
+export interface CreatedInvite extends Invite {
+  code: string
+}
+
+export interface AdminStats {
+  users: number
+  notes: number
+  shared_notes: number
+  signups_per_day: { date: string; count: number }[]
+}
+
+export const createInvite = (input: { max_uses: number; expires_in_days: number }) =>
+  request<CreatedInvite>('/admin/invites', { method: 'POST', body: JSON.stringify(input) })
+
+export const listInvites = () => request<Invite[]>('/admin/invites')
+
+export const revokeInvite = (id: number) =>
+  request<Invite>(`/admin/invites/${id}/revoke`, { method: 'POST' })
+
+export const getAdminStats = () => request<AdminStats>('/admin/stats')
 
 export const listNotes = () => request<Note[]>('/notes')
 
