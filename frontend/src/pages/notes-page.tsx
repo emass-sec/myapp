@@ -10,6 +10,8 @@ import { ColorBadge } from '@/components/color-badge'
 import { ColorFilter } from '@/components/color-filter'
 import type { ColorFilterValue } from '@/components/color-filter'
 import { DeleteDialog } from '@/components/delete-dialog'
+import { SharedBadge } from '@/components/shared-badge'
+import { SharedNotesSection } from '@/components/shared-notes-section'
 import { NoteDialog } from '@/components/note-dialog'
 import { ThemeToggle } from '@/components/theme-toggle'
 import { Button } from '@/components/ui/button'
@@ -201,7 +203,10 @@ export default function NotesPage({ theme, onToggleTheme }: Props) {
                   <CardHeader>
                     <div className="flex items-start justify-between gap-3">
                       <CardTitle className="break-words text-lg leading-snug">{note.title}</CardTitle>
-                      {note.color && <ColorBadge color={note.color} className="shrink-0" />}
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        {note.color && <ColorBadge color={note.color} />}
+                        {note.is_public && <SharedBadge />}
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="flex-1 space-y-3">
@@ -230,6 +235,8 @@ export default function NotesPage({ theme, onToggleTheme }: Props) {
             ))}
           </ul>
         )}
+
+        <SharedNotesSection onUnauthorized={clear} />
       </main>
 
       <NoteDialog

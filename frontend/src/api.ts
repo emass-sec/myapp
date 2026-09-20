@@ -5,6 +5,7 @@ export interface Note {
   title: string
   content: string
   color: NoteColor | null
+  is_public: boolean
   created_at: string
   updated_at: string
 }
@@ -14,6 +15,24 @@ export interface NoteInput {
   content: string
   /** null clears the label on update. */
   color: NoteColor | null
+  is_public: boolean
+}
+
+/** Another user's public note: read-only, with the author's username only. */
+export interface SharedNote {
+  id: number
+  title: string
+  content: string
+  author: string
+  created_at: string
+  updated_at: string
+}
+
+export interface SharedNotePage {
+  items: SharedNote[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export interface User {
@@ -72,6 +91,9 @@ export const logout = () => request<void>('/auth/logout', { method: 'POST' })
 export const getMe = () => request<User>('/auth/me')
 
 export const listNotes = () => request<Note[]>('/notes')
+
+export const listSharedNotes = (limit: number, offset: number) =>
+  request<SharedNotePage>(`/notes/shared?limit=${limit}&offset=${offset}`)
 
 export const createNote = (input: NoteInput) =>
   request<Note>('/notes', { method: 'POST', body: JSON.stringify(input) })

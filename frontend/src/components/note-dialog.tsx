@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { ColorPicker } from '@/components/color-picker'
 import type { Note, NoteColor, NoteInput } from '@/api'
@@ -46,13 +47,14 @@ function NoteForm({
   const [title, setTitle] = useState(note?.title ?? '')
   const [content, setContent] = useState(note?.content ?? '')
   const [color, setColor] = useState<NoteColor | null>(note?.color ?? null)
+  const [isPublic, setIsPublic] = useState(note?.is_public ?? false)
   const [saving, setSaving] = useState(false)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setSaving(true)
     try {
-      await onSubmit({ title, content, color })
+      await onSubmit({ title, content, color, is_public: isPublic })
     } finally {
       setSaving(false)
     }
@@ -90,6 +92,20 @@ function NoteForm({
       <div className="grid gap-2">
         <Label>Color label</Label>
         <ColorPicker value={color} onChange={setColor} />
+      </div>
+      <div className="flex items-start justify-between gap-4 rounded-lg border border-info bg-info-tint px-3 py-2.5">
+        <div className="grid gap-0.5">
+          <Label htmlFor="note-public">Share with all users</Label>
+          <p id="note-public-hint" className="text-xs text-muted-foreground">
+            Everyone with an account can read this note. Only you can edit or delete it.
+          </p>
+        </div>
+        <Switch
+          id="note-public"
+          checked={isPublic}
+          onCheckedChange={setIsPublic}
+          aria-describedby="note-public-hint"
+        />
       </div>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onCancel}>
