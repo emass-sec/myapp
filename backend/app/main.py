@@ -98,7 +98,8 @@ def get_note(note_id: int, db: DbSession, user: CurrentUser) -> Note:
 def update_note(note_id: int, payload: NoteUpdate, db: DbSession, user: CurrentUser) -> Note:
     note = _get_or_404(db, note_id, user)
     for field, value in payload.model_dump(exclude_unset=True).items():
-        if value is not None:
+        # title/content ignore null (unchanged); color accepts null to clear the label.
+        if value is not None or field == "color":
             setattr(note, field, value)
     db.commit()
     return note

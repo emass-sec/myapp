@@ -1,3 +1,6 @@
+import pytest
+
+
 def test_create_and_get(client):
     resp = client.post("/notes", json={"title": "Hello", "content": "World"})
     assert resp.status_code == 201
@@ -35,3 +38,33 @@ def test_not_found(client):
 
 def test_empty_title_rejected(client):
     assert client.post("/notes", json={"title": ""}).status_code == 422
+
+
+def test_color_defaults_to_none(client):
+    assert client.post("/notes", json={"title": "x"}).json()["color"] is None
+
+
+def test_create_with_color_and_filterable_field(client):
+    note = client.post("/notes", json={"title": "x", "color": "amber"}).json()
+    assert note["color"] == "amber"
+    assert client.get(f"/notes/{note['id']}").json()["color"] == "amber"
+
+
+@pytest.mark.parametrize("color", ["blue", "red", "amber", "green", "yellow"])
+def test_all_labels_accepted(client, color):
+    assert client.post("/notes", json={"title": "x", "color": color}).json()["color"] == color
+
+
+def test_invalid_color_rejected(client):
+    assert client.post("/notes", json={"title": "x", "color": "purple"}).status_code == 422
+    note_id = client.post("/notes", json={"title": "x"}).json()["id"]
+    assert client.patch(f"/notes/{note_id}", json={"color": "#ff0000"}).status_code == 422
+
+
+def test_update_color_set_clear_and_untouched(client):
+    note_id = client.post("/notes", json={"title": "x", "color": "red"}).json()["id"]
+    # Updating another field leaves the label alone.
+    assert client.patch(f"/notes/{note_id}", json={"title": "y"}).json()["color"] == "red"
+    assert client.patch(f"/notes/{note_id}", json={"color": "green"}).json()["color"] == "green"
+    # Explicit null clears it.
+    assert client.patch(f"/notes/{note_id}", json={"color": None}).json()["color"] is None
