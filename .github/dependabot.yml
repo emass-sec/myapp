@@ -14,6 +14,10 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    ignore:
+      # Keep @types/node on the Node major used by the frontend Dockerfile and CI.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
 
   # Local dev stack and the production stack (includes the pinned cloudflared image).
   - package-ecosystem: docker-compose
