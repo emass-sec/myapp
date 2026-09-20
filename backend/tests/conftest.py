@@ -1,4 +1,4 @@
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 
 import pytest
 from fastapi.testclient import TestClient
@@ -11,7 +11,8 @@ from app.main import app
 
 
 @pytest.fixture
-def client() -> Iterator[TestClient]:
+def make_client() -> Iterator[Callable[[], TestClient]]:
+    """Factory for independent clients (separate cookie jars) sharing one in-memory database."""
     engine = create_engine(
         "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
     )
@@ -23,7 +24,26 @@ def client() -> Iterator[TestClient]:
             yield db
 
     app.dependency_overrides[get_db] = override_get_db
-    with TestClient(app) as c:
-        yield c
+    clients: list[TestClient] = []
+
+    def make() -> TestClient:
+        # https base URL so the Secure session cookie is sent back, as in production.
+        c = TestClient(app, base_url="https://testserver")
+        clients.append(c)
+        return c
+
+    yield make
+    for c in clients:
+        c.close()
     app.dependency_overrides.clear()
     engine.dispose()
+
+
+@pytest.fixture
+def client(make_client: Callable[[], TestClient]) -> TestClient:
+    """A client already signed up and logged in as user 'alice'."""
+    c = make_client()
+    assert (
+        c.post("/auth/signup", json={"username": "alice", "password": "secret1"}).status_code == 201
+    )
+    return c
