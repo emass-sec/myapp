@@ -1,6 +1,16 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, false
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    false,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -16,7 +26,30 @@ class User(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     username: Mapped[str] = mapped_column(String(50), unique=True)
     password_hash: Mapped[str] = mapped_column(String(255))
+    # Granted only via `python -m app.cli make-admin`; there is deliberately no API or UI for it.
+    is_admin: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class InviteCode(Base):
+    """Signup invite. Only the SHA-256 of the code is stored; see app.invites."""
+
+    __tablename__ = "invite_codes"
+    __table_args__ = (
+        CheckConstraint("max_uses >= 1", name="ck_invite_codes_max_uses"),
+        CheckConstraint("use_count >= 0", name="ck_invite_codes_use_count"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    code_hash: Mapped[str] = mapped_column(String(64), unique=True)
+    created_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), default=None
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    max_uses: Mapped[int] = mapped_column(Integer, default=1, server_default="1")
+    use_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    revoked: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
 
 
 class AuthSession(Base):

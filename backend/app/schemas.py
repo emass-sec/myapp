@@ -62,11 +62,13 @@ class UserRead(BaseModel):
 
     id: int
     username: str
+    is_admin: bool = False  # UI hint only; the API enforces admin access itself
 
 
 class SignupRequest(BaseModel):
     username: str = Field(min_length=1, max_length=50)
     password: str
+    invite_code: str | None = Field(default=None, max_length=64)
 
     @field_validator("username")
     @classmethod
@@ -91,3 +93,41 @@ class SignupRequest(BaseModel):
 class LoginRequest(BaseModel):
     username: str = Field(max_length=50)
     password: str = Field(max_length=PASSWORD_MAX)
+
+
+class AuthConfig(BaseModel):
+    signup_mode: Literal["open", "invite", "closed"]
+
+
+class InviteCreate(BaseModel):
+    max_uses: int = Field(default=1, ge=1, le=100)
+    expires_in_days: int = Field(default=7, ge=1, le=90)
+
+
+class InviteRead(BaseModel):
+    """An invite as listed to admins. Never includes the code itself (only its hash is stored)."""
+
+    id: int
+    created_by: str | None
+    created_at: datetime
+    expires_at: datetime
+    max_uses: int
+    use_count: int
+    revoked: bool
+    status: Literal["active", "used_up", "expired", "revoked"]
+
+
+class InviteCreated(InviteRead):
+    code: str  # plaintext, returned exactly once at creation
+
+
+class DailyCount(BaseModel):
+    date: str
+    count: int
+
+
+class AdminStats(BaseModel):
+    users: int
+    notes: int
+    shared_notes: int
+    signups_per_day: list[DailyCount]

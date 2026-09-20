@@ -7,6 +7,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy import func, select, text
 from sqlalchemy.orm import Session
 
+from app.admin import router as admin_router
 from app.auth import CurrentUser
 from app.auth import router as auth_router
 from app.config import settings
@@ -19,6 +20,7 @@ DbSession = Annotated[Session, Depends(get_db)]
 app = FastAPI(title="Notes API")
 
 app.include_router(auth_router)
+app.include_router(admin_router)
 
 
 @app.exception_handler(RequestValidationError)

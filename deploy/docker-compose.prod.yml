@@ -24,6 +24,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:?missing DATABASE_URL}
       CORS_ORIGINS: https://app.masnetsec.com
+      SIGNUP_MODE: invite
     ports:
       - "127.0.0.1:8000:8000"
     depends_on:

@@ -8,12 +8,14 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.invites import consume_invite
 from app.models import AuthAttempt, AuthSession, User
-from app.schemas import LoginRequest, SignupRequest, UserRead
+from app.schemas import AuthConfig, LoginRequest, SignupRequest, UserRead
 from app.security import hash_password, hash_token, new_session_token, verify_password
 
 COOKIE_NAME = "session"
 INVALID_LOGIN = "Invalid account or password"
+INVALID_INVITE = "Invalid invite code"  # same for unknown, expired, revoked and used-up codes
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 DbSession = Annotated[Session, Depends(get_db)]
@@ -82,16 +84,33 @@ def get_current_user(
 CurrentUser = Annotated[User, Depends(get_current_user)]
 
 
+@router.get("/config", response_model=AuthConfig)
+def auth_config() -> AuthConfig:
+    return AuthConfig(signup_mode=settings.signup_mode)
+
+
 @router.post("/signup", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def signup(payload: SignupRequest, request: Request, response: Response, db: DbSession) -> User:
+    if settings.signup_mode == "closed":
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Signups are closed")
+
     ip = client_ip(request)
     window = _now() - timedelta(hours=1)
     if _attempts_since(db, "signup", ip, window) >= settings.signup_max_per_hour:
         raise _too_many(3600)
     db.add(AuthAttempt(kind="signup", ip=ip, username=payload.username))
-    db.commit()  # counted even if the username turns out to be taken
+    db.commit()  # counted even if the code is wrong or the username turns out to be taken
 
+    # Hash first so the invite row isn't locked while argon2 runs.
     user = User(username=payload.username, password_hash=hash_password(payload.password))
+
+    if settings.signup_mode == "invite":
+        # Consume before inserting the user: probing usernames requires a valid code, and a
+        # username conflict below rolls the consumption back (same transaction).
+        if not payload.invite_code or not consume_invite(db, payload.invite_code):
+            db.rollback()
+            raise HTTPException(status.HTTP_403_FORBIDDEN, INVALID_INVITE)
+
     db.add(user)
     try:
         db.commit()
