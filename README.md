@@ -80,7 +80,7 @@ notes are readable by every signed-in user, and only there:
 ## Accounts and authentication
 
 Users sign up with just a username and password (no email or personal details; the
-password must be 6-128 characters). Passwords are hashed with argon2id.
+password must be 6-128 characters), subject to the signup mode below. Passwords are hashed with argon2id.
 
 - Sessions are stored server-side in Postgres (`sessions` table, keyed by a SHA-256
   of the token). The browser gets an `HttpOnly; Secure; SameSite=Lax` cookie named
@@ -101,6 +101,57 @@ password must be 6-128 characters). Passwords are hashed with argon2id.
 
 `notes.owner_id` is `NOT NULL`. Migration `0003` fails (without deleting anything) if any
 ownerless note exists.
+
+## Signup modes, invites and admins
+
+`SIGNUP_MODE` controls who can create accounts:
+
+| Mode | Behavior |
+|---|---|
+| `open` | Anyone can sign up (the default in `.env.example` and the local `docker-compose.yml`). |
+| `invite` | Signup requires a valid invite code. Production uses this (`deploy/docker-compose.prod.yml`); it is also the code default if the variable is unset. |
+| `closed` | No signups (403). Existing users can still log in. |
+
+`GET /auth/config` reports the mode so the signup page can show or hide the invite field.
+
+**Invite codes** look like `K7MQ-3XWD` (8 characters from a CSPRNG, without `0/O/1/I/L`; entry
+ignores case and dashes). Only the SHA-256 of a code is stored, so the plaintext is shown exactly
+once, when an admin creates it. Each code has an expiry (default 7 days) and a use limit (default 1).
+Redemption is a single atomic `UPDATE ... WHERE use_count < max_uses AND NOT revoked AND
+expires_at > now`, so concurrent signups can never exceed the limit, and it happens in the same
+transaction as creating the user (a taken username does not burn a use). Every failure (unknown,
+expired, revoked, used up, missing) returns the same `403 Invalid invite code`.
+
+**Admins** (`users.is_admin`) can use the `/admin` page and API: create, list and revoke invites, and
+see stats (users, notes, shared notes, signups per day for the last 30 days). Non-admins get 403 from
+every `/admin/*` endpoint (the frontend only hides the link; the API is the security boundary).
+Admin rights can only be granted from the command line on the server, never through the API or UI:
+
+```bash
+python -m app.cli make-admin USERNAME     # the user must already exist
+```
+
+Locally: `docker compose exec backend python -m app.cli make-admin USERNAME`.
+
+### Granting admin in production (via SSM)
+
+The instance has no SSH, so run the command through SSM (region `us-east-2`; the instance ID is the
+`EC2_INSTANCE_ID` repository variable):
+
+```bash
+IID=$(gh variable get EC2_INSTANCE_ID)
+CMD=$(aws ssm send-command --region us-east-2 --instance-ids "$IID" \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["cd /opt/notes-app && docker compose --env-file .env -f docker-compose.prod.yml exec -T backend python -m app.cli make-admin USERNAME"]' \
+  --query Command.CommandId --output text)
+aws ssm get-command-invocation --region us-east-2 --command-id "$CMD" --instance-id "$IID" \
+  --query '[Status,StandardOutputContent,StandardErrorContent]' --output text
+```
+
+(Replace `USERNAME`; or open a shell with `aws ssm start-session --target "$IID"` and run the
+`docker compose ... exec` line there.) With `SIGNUP_MODE=invite` and no admin nobody can create
+invites, so after deploying this feature make yourself admin first, then create an invite at
+`https://app.masnetsec.com/admin` and share the link `https://app.masnetsec.com/signup?invite=CODE`.
 
 ## Checks
 
