@@ -71,8 +71,8 @@ password must be 6-128 characters). Passwords are hashed with argon2id.
 - Frontend routes: `/login`, `/signup`, and `/` (notes, redirects to `/login` when signed
   out and returns to the page you asked for after login).
 
-`notes.owner_id` is currently nullable so the migration could delete the old ownerless test
-notes; the API always sets it. A follow-up will make it `NOT NULL`.
+`notes.owner_id` is `NOT NULL`. Migration `0003` fails (without deleting anything) if any
+ownerless note exists.
 
 ## Checks
 
