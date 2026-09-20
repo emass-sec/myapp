@@ -122,5 +122,11 @@ python -m app.cli make-admin USERNAME     # the user must already exist
 
 Locally: `docker compose exec backend python -m app.cli make-admin USERNAME`.
 
+**Resetting a password** is also CLI-only: `python -m app.cli set-password USERNAME` prompts twice
+(with `getpass`, never as an argument), applies the signup rules (6-128 characters), hashes with
+argon2id, and deletes that user's sessions so they are signed out everywhere. It needs a terminal
+(locally `docker compose exec backend ...`; in production see
+[Resetting a user's password](deployment.md#resetting-a-users-password-in-production-via-ssm)).
+
 Production admin setup runs through SSM; see
 [Granting admin in production](deployment.md#granting-admin-in-production-via-ssm).

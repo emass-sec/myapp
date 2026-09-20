@@ -48,7 +48,8 @@ generic. Details: [architecture](docs/architecture.md#accounts-and-authenticatio
 `SIGNUP_MODE` is `open`, `invite` or `closed` (production uses `invite`). Admins create invite codes
 like `K7MQ-3XWD`: single-use by default, expiring after 7 days, stored only as a hash. Admin rights
 are granted from the command line only (`python -m app.cli make-admin USERNAME`; in production via
-SSM). Details: [architecture](docs/architecture.md#signup-modes-invites-and-admins) and
+SSM), and passwords are reset the same way (`python -m app.cli set-password USERNAME`,
+interactive). Details: [architecture](docs/architecture.md#signup-modes-invites-and-admins) and
 [deployment](docs/deployment.md#granting-admin-in-production-via-ssm).
 
 ## Checks

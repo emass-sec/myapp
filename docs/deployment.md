@@ -65,3 +65,26 @@ aws ssm get-command-invocation --region us-east-2 --command-id "$CMD" --instance
 `docker compose ... exec` line there.) With `SIGNUP_MODE=invite` and no admin nobody can create
 invites, so after deploying this feature make yourself admin first, then create an invite at
 `https://app.example.com/admin` and share the link `https://app.example.com/signup?invite=CODE`.
+
+## Resetting a user's password in production (via SSM)
+
+`set-password` prompts for the new password twice, so it needs an interactive terminal: use a
+Session Manager shell, not `aws ssm send-command` (which has no terminal; the command refuses to run
+without one rather than echo the password). The password is never a command-line argument.
+
+```bash
+IID=$(gh variable get EC2_INSTANCE_ID)
+aws ssm start-session --region us-east-2 --target "$IID"
+```
+
+Then, in the session:
+
+```bash
+sudo docker exec -it notes-app-backend-1 python -m app.cli set-password USERNAME
+```
+
+`notes-app-backend-1` is the backend container of the `notes-app` Compose project; confirm the name
+with `sudo docker ps --format '{{.Names}}'`. The command applies the same rules as signup (6-128
+characters), hashes the password with argon2id, and deletes that user's sessions so they are signed
+out everywhere. Other users are unaffected.
+
