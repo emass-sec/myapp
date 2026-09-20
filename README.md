@@ -1,10 +1,57 @@
 # myapp — Notes
 
-A simple notes app: create, list, edit and delete notes.
+A simple notes app: create, list, edit and share notes.
 
 - `backend/` — FastAPI, SQLAlchemy, Alembic, Postgres (managed with [uv](https://docs.astral.sh/uv/))
 - `frontend/` — React + Vite + TypeScript
 - `docker-compose.yml` — Postgres + backend + frontend
+
+## Tech stack
+
+| Layer | Technology | Where |
+|---|---|---|
+| **Backend** | [FastAPI](https://fastapi.tiangolo.com/) (served by uvicorn), Pydantic | `backend/app/` (`main.py` notes routes, `auth.py`, `admin.py`, `schemas.py`, `config.py`) |
+| | [SQLAlchemy](https://www.sqlalchemy.org/) 2 ORM with psycopg 3 | `backend/app/models.py`, `backend/app/database.py` |
+| | [Alembic](https://alembic.sqlalchemy.org/) migrations | `backend/alembic/versions/` |
+| | [PostgreSQL](https://www.postgresql.org/) 17 | `postgres:17-alpine` in `docker-compose.yml` and `deploy/docker-compose.prod.yml` |
+| | [uv](https://docs.astral.sh/uv/) (dependencies, virtualenv) | `backend/pyproject.toml`, `backend/uv.lock` |
+| | argon2 password hashing | `backend/app/security.py` |
+| | [pytest](https://docs.pytest.org/) (in-memory SQLite, `httpx` test client) | `backend/tests/` |
+| | [Ruff](https://docs.astral.sh/ruff/) (lint + format) | `[tool.ruff]` in `backend/pyproject.toml` |
+| **Frontend** | [React](https://react.dev/) 19, [Vite](https://vite.dev/) 8, TypeScript 7 | `frontend/src/`, `frontend/vite.config.ts` |
+| | [React Router](https://reactrouter.com/) 8 (`react-router` package) | routes in `frontend/src/App.tsx`, pages in `frontend/src/pages/` |
+| | [Tailwind CSS](https://tailwindcss.com/) 4 (via `@tailwindcss/vite`) | `frontend/src/index.css` |
+| | [shadcn/ui](https://ui.shadcn.com/) components (Radix UI primitives) | `frontend/src/components/ui/`, config in `frontend/components.json` |
+| | [lucide-react](https://lucide.dev/) icons | imported per component |
+| | [Sonner](https://sonner.emilkowal.ski/) toasts | `frontend/src/components/ui/sonner.tsx`, `<Toaster>` in `App.tsx` |
+| | [oxlint](https://oxc.rs/docs/guide/usage/linter) | `frontend/.oxlintrc.json` (`npm run lint`) |
+| | Inter and JetBrains Mono fonts (self-hosted via Fontsource) | imported in `frontend/src/index.css` |
+| **Infrastructure** | Docker Compose (local dev stack; production stack) | `docker-compose.yml`, `deploy/docker-compose.prod.yml` |
+| | AWS EC2, reached only through SSM (no SSH) | `deploy/deploy.sh`, run by `aws ssm send-command` from `.github/workflows/deploy.yml` |
+| | Amazon ECR (backend images tagged with the commit SHA) | `.github/workflows/deploy.yml`, `backend/Dockerfile` |
+| | Cloudflare Tunnel (`cloudflared`) exposing the API | `cloudflared` service in `deploy/docker-compose.prod.yml` |
+| | Cloudflare Workers with static assets (frontend) | `frontend/wrangler.jsonc` (serves `frontend/dist`, SPA fallback) |
+| | GitHub Actions with AWS OIDC (no stored AWS keys) | `.github/workflows/ci.yml`, `.github/workflows/deploy.yml`; Dependabot in `.github/dependabot.yml` |
+
+The local Docker setup serves the built frontend with nginx (`frontend/Dockerfile`,
+`frontend/nginx.conf`); in production the frontend runs on Cloudflare Workers instead.
+
+### Changing theme colors
+
+All colors are CSS variables in **`frontend/src/index.css`**:
+
+- `:root { ... }` holds the light theme and `.dark { ... }` the dark theme (dark is the default).
+  Edit the values there; nothing else needs to change.
+- The variables are the shadcn tokens (`--background`, `--card`, `--border`, `--primary`, ...) plus
+  the accents `--info` (blue), `--danger` (red), `--warning` (amber), `--success` (green) and
+  `--highlight` (yellow). Each accent has a `-tint` (callout background) and an `-fg` (text-safe
+  color) variant.
+- The `@theme inline { ... }` block maps the variables to Tailwind utilities (for example
+  `--color-info` becomes `bg-info`, `text-info-fg`, `border-info`), so components use the names,
+  never raw hex values.
+- Note color labels use these accents: the class mapping is in `frontend/src/lib/note-colors.ts`,
+  and the card left border and hover glow are the `.note-card` rules at the bottom of `index.css`.
+- After changing colors, re-check WCAG AA contrast (see [Theme and color labels](#theme-and-color-labels)).
 
 ## Quick start (Docker)
 
@@ -85,7 +132,7 @@ password must be 6-128 characters), subject to the signup mode below. Passwords 
 - Sessions are stored server-side in Postgres (`sessions` table, keyed by a SHA-256
   of the token). The browser gets an `HttpOnly; Secure; SameSite=Lax` cookie named
   `session` that lasts 7 days; logout deletes the row.
-- The frontend (`app.masnetsec.com`) and API (`api.masnetsec.com`) are same-site, so
+- The frontend (for example `app.example.com`) and API (`api.example.com`) are same-site, so
   the frontend calls the API with `credentials: 'include'` and the backend answers with
   `allow_credentials` and explicit `CORS_ORIGINS` only. Mutating requests from any other
   `Origin` are rejected with 403.
@@ -151,7 +198,7 @@ aws ssm get-command-invocation --region us-east-2 --command-id "$CMD" --instance
 (Replace `USERNAME`; or open a shell with `aws ssm start-session --target "$IID"` and run the
 `docker compose ... exec` line there.) With `SIGNUP_MODE=invite` and no admin nobody can create
 invites, so after deploying this feature make yourself admin first, then create an invite at
-`https://app.masnetsec.com/admin` and share the link `https://app.masnetsec.com/signup?invite=CODE`.
+`https://app.example.com/admin` and share the link `https://app.example.com/signup?invite=CODE`.
 
 ## Checks
 
@@ -174,7 +221,7 @@ uv run alembic upgrade head
 ## Deployment
 
 Pushes to `main` (or a manual run of the **Deploy** workflow) deploy to production
-at https://api.masnetsec.com. Everything is in `.github/workflows/deploy.yml` and `deploy/`.
+at your API host (for example https://api.example.com). Everything is in `.github/workflows/deploy.yml` and `deploy/`.
 
 0. The backend lint and tests must pass first; the deploy job `needs:` them.
 1. GitHub Actions assumes the AWS role in the `AWS_ROLE_ARN` repo variable via OIDC
@@ -195,7 +242,9 @@ The push trigger only fires for changes under `backend/`, `deploy/` or `.github/
 
 Production runs Postgres (named volume, no published ports), the backend (bound to
 `127.0.0.1:8000`) and `cloudflared` (host network, routes the tunnel to the backend).
-CORS allows only `https://app.masnetsec.com` (`CORS_ORIGINS` in the prod compose file).
+CORS allows only your frontend origin (for example `https://app.example.com`), set as `CORS_ORIGINS`
+in `deploy/docker-compose.prod.yml`. Replace the example domains in this README, that file and your
+Cloudflare configuration with your own.
 Secrets live only in SSM; nothing sensitive is in the repo or workflow.
 
 ### Recovery and rollback

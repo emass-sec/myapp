@@ -7,6 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - `backend/` — FastAPI + SQLAlchemy + Alembic + Postgres, managed with uv (Python 3.12)
 - `frontend/` — React + Vite + TypeScript (npm, lint with oxlint); `wrangler.jsonc` deploys `dist/` as a Cloudflare Worker with static assets (SPA fallback, no Worker script)
 - `docker-compose.yml` — local dev stack; `deploy/` — production stack and deploy script
+- When you add or remove a major dependency (framework, ORM, UI library, hosting/infra component), update the README's "Tech stack" section in the same change.
 
 ## Commands
 
