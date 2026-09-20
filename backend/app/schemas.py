@@ -15,6 +15,7 @@ class NoteCreate(BaseModel):
     title: str = Field(min_length=1, max_length=200)
     content: str = ""
     color: NoteColor | None = None
+    is_public: bool = False
 
 
 class NoteUpdate(BaseModel):
@@ -22,6 +23,7 @@ class NoteUpdate(BaseModel):
     content: str | None = None
     # Explicit null clears the label; omitting the field leaves it unchanged.
     color: NoteColor | None = None
+    is_public: bool | None = None
 
 
 class NoteRead(BaseModel):
@@ -31,8 +33,28 @@ class NoteRead(BaseModel):
     title: str
     content: str
     color: NoteColor | None
+    is_public: bool
     created_at: datetime
     updated_at: datetime
+
+
+class SharedNoteRead(BaseModel):
+    """A public note as seen by other users: the note plus the author's username, nothing more."""
+
+    id: int
+    title: str
+    content: str
+    color: NoteColor | None
+    author: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class SharedNotePage(BaseModel):
+    items: list[SharedNoteRead]
+    total: int
+    limit: int
+    offset: int
 
 
 class UserRead(BaseModel):

@@ -62,6 +62,21 @@ Each note can have an optional color label (`blue`, `red`, `amber`, `green`, `ye
 the nullable `notes.color` column (migration `0004`, backward compatible). `PATCH` with
 `"color": null` clears it. The notes page can filter by label.
 
+## Sharing notes
+
+An owner can mark a note public (`is_public`, default `false`; set on create or `PATCH`). Public
+notes are readable by every signed-in user, and only there:
+
+- `GET /notes/shared?limit=20&offset=0` returns other users' public notes, newest first
+  (`limit` 1-50), as `{items, total, limit, offset}`. Each item has `id`, `title`, `content`,
+  `color` (the note's label, or `null`), `author` (username only) and timestamps; no other user data.
+- `GET /notes` still returns only your own notes, and `GET/PATCH/DELETE /notes/{id}` are strictly
+  owner-only (another user's note, public or not, is a 404). Unsharing hides a note immediately.
+- The UI has a "Share with all users" switch in the note dialog, a "Shared" badge on your public
+  notes, and a read-only "Shared with everyone" section below your notes.
+- Migration `0005` adds `notes.is_public BOOLEAN NOT NULL DEFAULT false`, so the previous app
+  version keeps working during a rollout.
+
 ## Accounts and authentication
 
 Users sign up with just a username and password (no email or personal details; the

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.database import Base
@@ -45,6 +45,7 @@ class AuthAttempt(Base):
 
 class Note(Base):
     __tablename__ = "notes"
+    __table_args__ = (Index("ix_notes_public_created", "is_public", "created_at"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
     owner_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
@@ -52,6 +53,8 @@ class Note(Base):
     # Optional color label (see app.schemas.NoteColor); NULL means unlabeled.
     color: Mapped[str | None] = mapped_column(String(16), default=None)
     content: Mapped[str] = mapped_column(Text, default="")
+    # Public notes are readable (never editable) by every signed-in user via GET /notes/shared.
+    is_public: Mapped[bool] = mapped_column(Boolean, default=False, server_default=false())
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=_now, onupdate=_now
