@@ -23,6 +23,7 @@ export interface SharedNote {
   id: number
   title: string
   content: string
+  color: NoteColor | null
   author: string
   created_at: string
   updated_at: string

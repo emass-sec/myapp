@@ -33,8 +33,19 @@ def test_other_user_can_list_public_note_with_author_only(client, bob):
     (item,) = page["items"]
     assert item["title"] == "open" and item["content"] == "open body"
     assert item["author"] == "alice"
-    # Nothing else about the author (or the note's internals) leaks.
-    assert set(item) == {"id", "title", "content", "author", "created_at", "updated_at"}
+    # No user data beyond the author's username (no owner id, no is_public flag).
+    assert set(item) == {"id", "title", "content", "color", "author", "created_at", "updated_at"}
+
+
+def test_shared_notes_include_color_label(client, bob):
+    make_note(client, "labeled", is_public=True, color="amber")
+    make_note(client, "plain", is_public=True)
+    colors = {n["title"]: n["color"] for n in bob.get("/notes/shared").json()["items"]}
+    assert colors == {"labeled": "amber", "plain": None}
+    # Clearing the label on the note is reflected for readers too.
+    note_id = client.get("/notes").json()[1]["id"]
+    client.patch(f"/notes/{note_id}", json={"color": None})
+    assert all(n["color"] is None for n in bob.get("/notes/shared").json()["items"])
 
 
 def test_private_notes_are_not_visible_to_others(client, bob):

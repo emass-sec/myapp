@@ -105,6 +105,7 @@ def list_shared_notes(
             id=n.id,
             title=n.title,
             content=n.content,
+            color=n.color,
             author=username,
             created_at=n.created_at,
             updated_at=n.updated_at,

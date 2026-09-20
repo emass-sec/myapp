@@ -39,11 +39,12 @@ class NoteRead(BaseModel):
 
 
 class SharedNoteRead(BaseModel):
-    """A public note as seen by other users: the author's username and nothing else about them."""
+    """A public note as seen by other users: the note plus the author's username, nothing more."""
 
     id: int
     title: str
     content: str
+    color: NoteColor | None
     author: str
     created_at: datetime
     updated_at: datetime

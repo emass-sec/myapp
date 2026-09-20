@@ -4,6 +4,7 @@ import { ApiError, listSharedNotes } from '@/api'
 import type { SharedNote } from '@/api'
 import { Callout } from '@/components/callout'
 import { Chip } from '@/components/chip'
+import { ColorBadge } from '@/components/color-badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -125,9 +126,12 @@ export function SharedNotesSection({ onUnauthorized }: Props) {
           <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {items.map((note) => (
               <li key={note.id}>
-                <Card data-color="blue" className="note-card h-full gap-4">
+                <Card data-color={note.color ?? undefined} className="note-card h-full gap-4">
                   <CardHeader>
-                    <CardTitle className="break-words text-lg leading-snug">{note.title}</CardTitle>
+                    <div className="flex items-start justify-between gap-3">
+                      <CardTitle className="break-words text-lg leading-snug">{note.title}</CardTitle>
+                      {note.color && <ColorBadge color={note.color} className="shrink-0" />}
+                    </div>
                   </CardHeader>
                   <CardContent className="flex-1">
                     <p className="line-clamp-6 whitespace-pre-wrap break-words text-sm text-muted-foreground">

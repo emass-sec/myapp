@@ -69,7 +69,7 @@ notes are readable by every signed-in user, and only there:
 
 - `GET /notes/shared?limit=20&offset=0` returns other users' public notes, newest first
   (`limit` 1-50), as `{items, total, limit, offset}`. Each item has `id`, `title`, `content`,
-  `author` (username only) and timestamps; no other user data.
+  `color` (the note's label, or `null`), `author` (username only) and timestamps; no other user data.
 - `GET /notes` still returns only your own notes, and `GET/PATCH/DELETE /notes/{id}` are strictly
   owner-only (another user's note, public or not, is a 404). Unsharing hides a note immediately.
 - The UI has a "Share with all users" switch in the note dialog, a "Shared" badge on your public
