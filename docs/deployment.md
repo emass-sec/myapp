@@ -38,6 +38,18 @@ that commit**. Migrations are never reverted, and an older image can't run
 `alembic upgrade head` against a database that is at a newer revision (Alembic fails
 with "Can't locate revision"), so the deploy aborts.
 
+## Postgres major-version upgrades
+
+A Postgres major bump is **not** a tag change. The official images (18+) keep data under a
+version-specific directory and refuse to start on data from an older major, so merging a bare
+`postgres:N-alpine` bump would crash-loop the database on the next deploy. The 17 -> 18 move used a
+dump/restore into a new volume (`pgdata18`, mounted at `/var/lib/postgresql`), done by hand on the
+instance *before* merging the compose change. The tested script, the production runbook (backup via
+EBS snapshot, merge freeze, verification gates, rollback) and the local-developer steps are in
+[`docs/postgres-18-upgrade/`](postgres-18-upgrade/PROD_PLAN_pg17_to_18.md). Do not redeploy a commit
+from before that change: its compose file points at the old `pgdata` volume, which stops receiving
+writes at cutover.
+
 ## Rotating the database password
 
 Postgres only reads `POSTGRES_PASSWORD` when it first initializes the data volume.

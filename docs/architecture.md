@@ -16,7 +16,7 @@ How the app is put together. See also [deployment](deployment.md), [theming](the
 | **Backend** | [FastAPI](https://fastapi.tiangolo.com/) (served by uvicorn), Pydantic | `backend/app/` (`main.py` notes routes, `auth.py`, `admin.py`, `schemas.py`, `config.py`) |
 | | [SQLAlchemy](https://www.sqlalchemy.org/) 2 ORM with psycopg 3 | `backend/app/models.py`, `backend/app/database.py` |
 | | [Alembic](https://alembic.sqlalchemy.org/) migrations | `backend/alembic/versions/` |
-| | [PostgreSQL](https://www.postgresql.org/) 17 | `postgres:17-alpine` in `docker-compose.yml` and `deploy/docker-compose.prod.yml` |
+| | [PostgreSQL](https://www.postgresql.org/) 18 | `postgres:18-alpine` in `docker-compose.yml` and `deploy/docker-compose.prod.yml` |
 | | [uv](https://docs.astral.sh/uv/) (dependencies, virtualenv) | `backend/pyproject.toml`, `backend/uv.lock` |
 | | argon2 password hashing | `backend/app/security.py` |
 | | [pytest](https://docs.pytest.org/) (in-memory SQLite, `httpx` test client) | `backend/tests/` |

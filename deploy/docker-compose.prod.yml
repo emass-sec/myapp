@@ -4,14 +4,14 @@ name: notes-app
 
 services:
   db:
-    image: postgres:17-alpine
+    image: postgres:18-alpine
     restart: unless-stopped
     environment:
       POSTGRES_USER: notes
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?missing POSTGRES_PASSWORD}
       POSTGRES_DB: notes
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata18:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U notes -d notes"]
       interval: 5s
@@ -40,4 +40,4 @@ services:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN:?missing TUNNEL_TOKEN}
 
 volumes:
-  pgdata:
+  pgdata18:
