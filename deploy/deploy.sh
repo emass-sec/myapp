@@ -66,7 +66,12 @@ compose pull
 
 echo "==> Starting database and running migrations"
 compose up -d --wait db
-compose run --rm --no-deps backend alembic upgrade head
+# stderr is merged so Alembic's log lines show up in the Actions "Deploy output" group.
+compose run --rm --no-deps backend alembic upgrade head 2>&1
+
+echo "==> Current migration revision"
+# Read-only confirmation; must never fail the deploy.
+compose run --rm --no-deps backend alembic current 2>&1 || echo "WARNING: could not read current revision"
 
 echo "==> Starting stack"
 compose up -d --remove-orphans
