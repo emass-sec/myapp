@@ -1,4 +1,7 @@
-# Production Postgres 17 -> 18 plan (REVIEW ONLY - nothing here has been run against prod)
+# Production Postgres 17 -> 18 runbook (EXECUTED against prod on 2026-10-23; see "Cutover results" below)
+
+The steps below are the plan as written before the run. The commands were run as written except where the results
+section notes a difference. Step 8 cleanup has NOT been done yet.
 
 Prod facts (from deploy/docker-compose.prod.yml, deploy/deploy.sh, CLAUDE.md):
 - Compose project `notes-app` (from `name:`), dir `/opt/notes-app`, env `/opt/notes-app/.env`
@@ -180,6 +183,32 @@ is the fallback of last resort.
     aws ec2 delete-snapshot --region us-east-2 --snapshot-id <SNAP from step 3b>      # ~20 GiB, well under a few $/month while kept
 Keep `backups/` until then. Consider adding a scheduled pg_dump (none exists today).
 
+## Cutover results (2026-10-23, production, steps 2-6)
+All gates passed. The run was authorized as one back-to-back window (downtime acceptable); live-traffic pacing was skipped.
+- Step 2 preflight: PG_VERSION 17, `notes-app_pgdata18` absent, 15 GiB free, Compose v5.5.1, Docker 25.0.14, AL2023 (xfs).
+  `postgres:18-alpine` pre-pulled. No Deploy runs in progress.
+- Freeze: `gh workflow disable Deploy` (showed `disabled_manually`), re-enabled just before the merge.
+- 3a dump: `backups/notes-20261023T133150Z.dump`, 58 TOC lines, sha256 `0df3235e...5607`. Globals SQL saved.
+- 3b off-box copy: EBS snapshot **`snap-0f59e20560c574467`** of `vol-02bbc7744352fad39`, completed (100%), tags
+  Name=notes-app-pre-pg18, DeleteAfter=step-8-cleanup. S3 was not used (the instance role has no S3 access).
+- Step 4: backend stopped; `before.txt` fingerprint users 6, notes 9, invite_codes 1, sessions 1, auth_attempts 0,
+  alembic_version 1. Final dump `notes-final-20261023T133150Z.dump` (58 TOC lines, sha256 `508699c6...f368`),
+  `schema17.sql`, old db container removed (volume `notes-app_pgdata` kept).
+- Step 5: compose file fetched at PR head `4d9d2212...` (sha256 matched the PR file). PG 18.6 started on
+  `notes-app_pgdata18`; `pg_restore --single-transaction --exit-on-error` succeeded; `vacuumdb --analyze-only` ran.
+  **DATA MATCH** and **SCHEMA MATCH**. Sequences preserved (auth_attempts_id_seq 43, invite_codes 1, notes 13, users 6).
+- Step 6: PR #52 marked ready and squash-merged as `90cba1a` with `--match-head-commit 4d9d2212...`. Deploy run
+  39962874712 succeeded. "Deploy output" showed the Alembic context lines and `0006 (head)`, then "Backend healthy".
+  No `Running upgrade` line, as no migration was pending.
+- Post-cutover checks: the db container was NOT recreated by the deploy (id `4f291774b19c`, restarts 0, same start time as
+  before the deploy), live fingerprint == `before.txt`, PG 18.6 with `data_checksums` on, backend on image `90cba1a`,
+  `/health` 200, `https://app.masnetsec.com` 200, unauthenticated `/auth/me` 401, real client requests returned 200.
+- Downtime: roughly 6-8 minutes (backend stopped in step 4 until the deploy restarted it); estimated from timestamps.
+- Left on the instance for step 8: volume `notes-app_pgdata`, `docker-compose.pg18.yml`, `/opt/notes-app/backups/`
+  (dumps, `before.txt`, `schema17.sql`, `verify.sql`), and the snapshot above.
+- Nothing differed from the plan. Pre-cutover rollback (step 7) was never needed. After the cutover, rollback is the higher
+  risk path; do not revert #52 or redeploy a SHA from before `90cba1a` (both point compose at the stale `pgdata` volume).
+
 ## What is proven vs not
 Proven locally (twice, from a clean state, plus rollback): steps 4-5 core (dump, 18 on new volume, restore, analyze,
 verify counts + row hashes + schema + sequences), `alembic current/check`, full migration chain on 18, 108 tests,
@@ -192,8 +221,8 @@ db not recreated, `alembic upgrade head` + `alembic current` output visible (000
 live data == pre-upgrade fingerprint.
 Rehearsal differences from production: cloudflared not started, `compose pull` skipped for the locally built backend
 image, backend port remapped to avoid a clash, compose v5.5.1 (same as the instance), `-p rehearsal` instead of the
-`name: notes-app` in the file. NOT covered: SSM execution, the EBS snapshot commands themselves (permission dry-run passed,
-nothing created), instance free disk space, and the GitHub Actions deploy job itself.
+`name: notes-app` in the file. Not covered by the rehearsal (all confirmed by the production run above): SSM execution, the
+EBS snapshot commands, instance free disk space, and the GitHub Actions deploy job itself.
 
 ## 9. Local developers with an existing PG17 volume (#27 equivalent)
 Pulling the new docker-compose.yml (postgres:18-alpine + pgdata18:/var/lib/postgresql) onto an existing local setup
