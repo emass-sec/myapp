@@ -30,12 +30,15 @@ Run steps 2-5 and 7 in ONE interactive Session Manager session (`aws ssm start-s
     cd /opt/notes-app
     docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'
     docker volume ls | grep notes-app
-    docker compose version                                                         # note it; the rehearsal used v5.5.1
-    docker run --rm -v notes-app_pgdata:/v:ro alpine cat /v/PG_VERSION          # expect 17
+    docker compose version                                                         # expect v5.5.1 (rehearsal version)
+    cat "$(docker volume inspect -f '{{.Mountpoint}}' notes-app_pgdata)/PG_VERSION"   # expect 17 (host read; the `alpine` image is not on the instance, so don't `docker run` it)
     df -h /var/lib/docker /opt/notes-app                                           # need >= 3x DB size free
     docker compose --env-file .env -f docker-compose.prod.yml exec -T db psql -U notes -d notes -tAc \
       "select pg_size_pretty(pg_database_size('notes'))"
     gh run list --workflow Deploy --limit 3     # (from your laptop) nothing in_progress / queued
+    # PRE-PULL the new image BEFORE the window (it is not on the instance; pulling inside the window adds downtime and
+    # depends on Docker Hub availability / anonymous rate limits). Pulling does not touch the running stack:
+    docker pull postgres:18-alpine
 MERGE FREEZE (facts checked 2026-10-23): auto-merge is OFF for the repo (`allow_auto_merge=false`), no workflow
 auto-merges, and no open PR has it enabled, so Dependabot cannot merge anything by itself; it only opens/rebases PR
 branches (weekly schedule). Merges to `main` are therefore only human-initiated. `main` is protected by ruleset
@@ -49,6 +52,20 @@ Enforce the freeze TECHNICALLY by disabling the Deploy workflow (reversible, als
     gh workflow enable Deploy             # immediately BEFORE merging the replacement PR in step 6
 Pushes made while it is disabled never trigger a run later, so also keep the human rule: nothing else is merged during
 the window, otherwise unreviewed commits ride along with the cutover deploy. Tell anyone with merge rights.
+PREFLIGHT RESULTS (read-only SSM command 3cd0f769-2d18-4888-8cdc-848f0de0d625, 2026-10-23 13:27 UTC, status Success;
+re-run this step on the day, these are a snapshot in time):
+- Host: Amazon Linux 2023, root `/dev/xvda1` is **xfs** (so step 3c needs `-o ro,nouuid`, as written). Docker 25.0.14,
+  **Docker Compose v5.5.1 = the version used in the rehearsal**.
+- Containers: backend (image = `main` HEAD 3893649), cloudflared 2026.10.0, db `postgres:17-alpine` (healthy); /health 200.
+- Volume: only `notes-app_pgdata`; PG_VERSION = 17; 47 MiB on disk, DB 7.9 MB; `notes-app_pgdata18` does not exist (good).
+- Disk: 20 GiB root, 5.7 GiB used, 15 GiB free (plenty for dumps + the 18 image). Memory 1.9 GiB total, ~1.3 GiB available, 2 GiB swap.
+- `data_checksums` = off on the live 17 DB (18 enables it by default; harmless, dump/restore re-creates the cluster).
+- Row counts now: users 6, notes 9, invite_codes 1, sessions 1, auth_attempts 0, alembic_version 1 (revision 0006).
+- `/opt/notes-app` holds only .env, deploy.sh, docker-compose.prod.yml; no `backups/` yet (step 3a creates it).
+- Images on the instance: postgres:17-alpine, cloudflared. **`postgres:18-alpine` and `alpine` are NOT present** -> pre-pull 18
+  (above); don't use `alpine` in commands.
+- GitHub: no Deploy runs in progress (last: 3893649, success); only open PR is draft #52.
+
 Off-box backup method - RESOLVED (read-only AWS queries, 2026-10-23, nothing sent to the instance):
 - Instance `i-0bdf3bed2e4602198` (t2.small, us-east-2c) runs as instance profile `notes-app-ec2-role`.
 - That role has only `AmazonSSMManagedInstanceCore` + `AmazonEC2ContainerRegistryReadOnly`, no inline policies, no
@@ -146,8 +163,7 @@ https://app.masnetsec.com.
 VERIFIED in the rehearsal (see "What is proven"): with the db container already running on postgres:18 + notes-app_pgdata18
 (started from docker-compose.pg18.yml), overwriting docker-compose.prod.yml with the PR's file and running deploy.sh's
 compose commands reports `Container ...-db-1 Running` - NOT recreated (same container id, StartedAt and restart count before
-and after both `up -d` calls). Residual risk: compose version on the instance (record it in step 2; the rehearsal used
-v5.5.1). If the db container were recreated anyway, image and volume are identical, so the result would be the same.
+and after both `up -d` calls). The instance runs the same compose version as the rehearsal (v5.5.1, per the preflight). If the db container were recreated anyway, image and volume are identical, so the result would be the same.
 Do NOT revert the PR later as a "rollback": that would point compose back at the stale pgdata volume.
 
 ## 7. Rollback
@@ -175,7 +191,7 @@ SCHEMA MATCH) -> step 6 (overwrite docker-compose.prod.yml with the PR file, run
 db not recreated, `alembic upgrade head` + `alembic current` output visible (0006 (head)), backend healthy,
 live data == pre-upgrade fingerprint.
 Rehearsal differences from production: cloudflared not started, `compose pull` skipped for the locally built backend
-image, backend port remapped to avoid a clash, compose v5.5.1 (instance version unknown), `-p rehearsal` instead of the
+image, backend port remapped to avoid a clash, compose v5.5.1 (same as the instance), `-p rehearsal` instead of the
 `name: notes-app` in the file. NOT covered: SSM execution, the EBS snapshot commands themselves (permission dry-run passed,
 nothing created), instance free disk space, and the GitHub Actions deploy job itself.
 
