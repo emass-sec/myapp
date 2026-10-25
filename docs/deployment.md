@@ -27,6 +27,18 @@ in `deploy/docker-compose.prod.yml`. Replace the example domains in these docs, 
 Cloudflare configuration with your own.
 Secrets live only in SSM; nothing sensitive is in the repo or workflow.
 
+## Frontend (Cloudflare Worker)
+
+The frontend is built and deployed by Cloudflare Workers Builds on every push to `main`
+(including docs-only pushes), separately from the backend deploy above. `VITE_API_BASE_URL`
+(your API origin, for example `https://api.example.com`) is a **build-time** variable set under
+the Worker's Settings, Build, Variables and secrets. Vite bakes it into the bundle, so:
+
+- If it is missing or wrong, the build still succeeds and the site loads, but the app calls
+  `http://localhost:8000` (the default) and nobody can log in.
+- Changing it has no effect on the live site until a new build runs.
+- To check a deployed bundle: `curl -s https://app.example.com/assets/<index-hash>.js | grep -o 'localhost:8000\|api\.example\.com'`.
+
 ## Recovery and rollback
 
 The default way to recover from a bad deploy is to **roll forward**: fix the problem
