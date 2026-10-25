@@ -14,6 +14,15 @@ updates:
     directory: /frontend
     schedule:
       interval: weekly
+    groups:
+      # react and react-dom must always be the same version (React throws at startup otherwise),
+      # so they update together, along with their type packages.
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react"
+          - "@types/react-dom"
     ignore:
       # Keep @types/node on the Node major used by the frontend Dockerfile and CI.
       - dependency-name: "@types/node"
