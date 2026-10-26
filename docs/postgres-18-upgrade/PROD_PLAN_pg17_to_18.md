@@ -70,11 +70,12 @@ re-run this step on the day, these are a snapshot in time):
 - GitHub: no Deploy runs in progress (last: 3893649, success); only open PR is draft #52.
 
 Off-box backup method - RESOLVED (read-only AWS queries, 2026-10-23, nothing sent to the instance):
-- Instance `i-0bdf3bed2e4602198` (t2.small, us-east-2c) runs as instance profile `notes-app-ec2-role`.
+- The production instance (t2.small; ID in the `EC2_INSTANCE_ID` repo variable) runs under an instance profile. Look up its role with:
+  `aws ec2 describe-instances --region us-east-2 --instance-ids "$(gh variable get EC2_INSTANCE_ID)" --query 'Reservations[0].Instances[0].IamInstanceProfile.Arn' --output text`
 - That role has only `AmazonSSMManagedInstanceCore` + `AmazonEC2ContainerRegistryReadOnly`, no inline policies, no
   permissions boundary. `iam simulate-principal-policy` for s3:PutObject / s3:GetObject / s3:ListBucket = implicitDeny.
   => the instance has NO S3 access today. The only bucket in the account is the CloudTrail log bucket (not for this).
-- The instance has a single volume, `vol-02bbc7744352fad39` (20 GiB gp3, unencrypted, root `/dev/xvda`). Docker volumes live
+- The instance has a single volume, `<volume-id>` (20 GiB gp3, unencrypted, root `/dev/xvda`). Docker volumes live
   under /var/lib/docker on it, so a snapshot of it captures the live PG17 volume AND /opt/notes-app/backups.
 - No existing snapshots, no DLM lifecycle policy, no AWS Backup plan in us-east-2.
 DECISION: use an EBS snapshot (step 3b). It needs no IAM change and is run from your admin SSO session, not the instance.
@@ -94,8 +95,9 @@ S3 would first require a new bucket plus a narrow instance-role policy (Appendix
 ### 3b. Off-box copy = EBS snapshot (run from YOUR laptop, admin SSO session; `aws sso login` first if expired)
 Take it AFTER 3a so the snapshot also contains backups/*.dump. It is crash-consistent (taken while Postgres is running);
 Postgres recovers such a copy from WAL, and it is a second line of defence behind the verified logical dump.
-    REGION=us-east-2; VOL=vol-02bbc7744352fad39
-    aws sts get-caller-identity --query Account --output text            # expect 425805163863
+    REGION=us-east-2; IID=$(gh variable get EC2_INSTANCE_ID)
+    VOL=$(aws ec2 describe-instances --region $REGION --instance-ids "$IID" --query 'Reservations[0].Instances[0].BlockDeviceMappings[?DeviceName==`/dev/xvda`].Ebs.VolumeId | [0]' --output text)
+    aws sts get-caller-identity --query Account --output text            # expect <account-id>
     SNAP=$(aws ec2 create-snapshot --region $REGION --volume-id $VOL \
       --description "notes-app pre-pg18 upgrade $(date -u +%Y-%m-%dT%H:%M:%SZ)" \
       --tag-specifications 'ResourceType=snapshot,Tags=[{Key=Name,Value=notes-app-pre-pg18},{Key=Purpose,Value=pg17-to-18-rollback},{Key=DeleteAfter,Value=step-8-cleanup}]' \
@@ -111,11 +113,12 @@ GATE: do not continue until BOTH are true: (1) 3a `pg_restore -l` printed a coun
 (2) the snapshot State is `completed` (Progress 100%). Record the snapshot ID in the change log.
 
 ### 3c. Recovering a file from the snapshot (only if needed; do not attach it to the live instance's root)
-    AZ=us-east-2c
+    IID=$(gh variable get EC2_INSTANCE_ID)
+    AZ=$(aws ec2 describe-instances --region $REGION --instance-ids "$IID" --query 'Reservations[0].Instances[0].Placement.AvailabilityZone' --output text)
     NEWVOL=$(aws ec2 create-volume --region $REGION --availability-zone $AZ --snapshot-id $SNAP --volume-type gp3 \
       --tag-specifications 'ResourceType=volume,Tags=[{Key=Name,Value=pg18-rollback-restore}]' --query VolumeId --output text)
     aws ec2 wait volume-available --region $REGION --volume-ids $NEWVOL
-    aws ec2 attach-volume --region $REGION --volume-id $NEWVOL --instance-id i-0bdf3bed2e4602198 --device /dev/sdf
+    aws ec2 attach-volume --region $REGION --volume-id $NEWVOL --instance-id "$IID" --device /dev/sdf
     # on the instance: find the partition (lsblk), mount read-only. XFS (Amazon Linux default) needs nouuid because the
     # clone shares the root filesystem's UUID; ext4 does not accept that option.
     mkdir -p /mnt/snap && mount -o ro,nouuid /dev/<partition> /mnt/snap && ls /mnt/snap/opt/notes-app/backups/
@@ -189,7 +192,7 @@ All gates passed. The run was authorized as one back-to-back window (downtime ac
   `postgres:18-alpine` pre-pulled. No Deploy runs in progress.
 - Freeze: `gh workflow disable Deploy` (showed `disabled_manually`), re-enabled just before the merge.
 - 3a dump: `backups/notes-20261023T133150Z.dump`, 58 TOC lines, sha256 `0df3235e...5607`. Globals SQL saved.
-- 3b off-box copy: EBS snapshot **`snap-0f59e20560c574467`** of `vol-02bbc7744352fad39`, completed (100%), tags
+- 3b off-box copy: EBS snapshot **`<snapshot-id>`** of `<volume-id>`, completed (100%), tags
   Name=notes-app-pre-pg18, DeleteAfter=step-8-cleanup. S3 was not used (the instance role has no S3 access).
 - Step 4: backend stopped; `before.txt` fingerprint users 6, notes 9, invite_codes 1, sessions 1, auth_attempts 0,
   alembic_version 1. Final dump `notes-final-20261023T133150Z.dump` (58 TOC lines, sha256 `508699c6...f368`),
@@ -242,7 +245,7 @@ Fresh checkouts with no local data need nothing: `docker compose up` initializes
 
 ## Appendix A - S3 instead of EBS snapshot (NOT used for this run)
 Would need, first: a new private bucket (block public access, default encryption) and this inline policy on
-`notes-app-ec2-role` (scope to one prefix, write-only so a compromised instance cannot read or delete old backups):
+the instance's role (`<instance-role>`, from the lookup above; scope to one prefix, write-only so a compromised instance cannot read or delete old backups):
     {"Version":"2012-10-17","Statement":[{"Sid":"PgBackupWriteOnly","Effect":"Allow",
       "Action":"s3:PutObject","Resource":"arn:aws:s3:::<bucket>/pg-upgrade/*"}]}
 Then on the instance: `aws s3 cp backups/notes-$TS.dump s3://<bucket>/pg-upgrade/ --sse AES256 --region us-east-2`.
