@@ -3,7 +3,7 @@ name = "notes-backend"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.20.0",
+    "alembic>=1.20.1",
     "argon2-cffi>=25.1.0",
     "fastapi>=0.159.1",
     "psycopg[binary]>=3.3.6",
