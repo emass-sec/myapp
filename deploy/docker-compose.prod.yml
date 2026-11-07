@@ -32,7 +32,7 @@ services:
         condition: service_healthy
 
   cloudflared:
-    image: cloudflare/cloudflared:2026.10.5
+    image: cloudflare/cloudflared:2026.10.7
     restart: unless-stopped
     network_mode: host
     command: tunnel --no-autoupdate run
